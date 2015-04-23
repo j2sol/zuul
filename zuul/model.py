@@ -1498,7 +1498,7 @@ class Changeish(object):
         base_path = ''
         if hasattr(self, 'refspec'):
             base_path = "%s/%s/%s" % (
-                self.number[-2:], self.number, self.patchset)
+                str(self.number)[-2:], self.number, self.patchset)
         elif hasattr(self, 'ref'):
             base_path = "%s/%s" % (self.newrev[:2], self.newrev)
 
@@ -1573,6 +1573,20 @@ class Change(Changeish):
 
     def updatesConfig(self):
         if 'zuul.yaml' in self.files or '.zuul.yaml' in self.files:
+            return True
+        return False
+
+
+class PullRequest(Change):
+    def __init__(self, project):
+        super(PullRequest, self).__init__(project)
+        self.updated_at = None
+
+    def isUpdateOf(self, other):
+        if (hasattr(other, 'number') and self.number == other.number and
+            hasattr(other, 'patchset') and self.patchset != other.patchset and
+            hasattr(other, 'updated_at') and
+            self.updated_at > other.updated_at):
             return True
         return False
 

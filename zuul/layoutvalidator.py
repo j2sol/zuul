@@ -183,6 +183,7 @@ class LayoutSchema(object):
         connection_drivers = {
             'trigger': {
                 'gerrit': 'zuul.trigger.gerrit',
+                'github': 'zuul.trigger.github',
             },
             'reporter': {
                 'gerrit': 'zuul.reporter.gerrit',
