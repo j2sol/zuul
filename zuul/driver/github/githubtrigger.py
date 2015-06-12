@@ -53,6 +53,8 @@ def getSchema():
                      'pr-change',
                      'pr-close',
                      'pr-reopen',
+                     'push',
+                     'tag',
                      )),
     }
 

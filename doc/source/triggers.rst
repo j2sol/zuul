@@ -119,6 +119,10 @@ following options.
 
     *pr-reopen* - pull request reopened
 
+    *push* - head reference updated (pushed to branch)
+
+    *tag* - new tag created
+
 GitHub Configuration
 ~~~~~~~~~~~~~~~~~~~~
 
