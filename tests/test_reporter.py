@@ -44,3 +44,17 @@ class TestGerritReporter(testtools.TestCase):
 
     def test_reporter_name(self):
         self.assertEqual('gerrit', zuul.reporter.gerrit.GerritReporter.name)
+
+
+class TestGithubReporter(testtools.TestCase):
+    log = logging.getLogger("zuul.test_reporter")
+
+    def setUp(self):
+        super(TestGithubReporter, self).setUp()
+
+    def test_reporter_abc(self):
+        # We only need to instantiate a class for this
+        reporter = zuul.reporter.github.GithubReporter(None)  # noqa
+
+    def test_reporter_name(self):
+        self.assertEqual('github', zuul.reporter.github.GithubReporter.name)

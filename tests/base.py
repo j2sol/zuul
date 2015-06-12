@@ -54,6 +54,7 @@ import zuul.merger.client
 import zuul.merger.merger
 import zuul.merger.server
 import zuul.reporter.gerrit
+import zuul.reporter.github
 import zuul.reporter.smtp
 import zuul.source.gerrit
 import zuul.source.github
@@ -613,6 +614,10 @@ class FakeGithubConnection(zuul.connection.github.GithubConnection):
 
     def getGitUrl(self, project):
         return os.path.join(self.upstream_root, str(project))
+
+    def report(self, owner, project, pr_number, message, params=None):
+        pull_request = self.pull_requests[pr_number - 1]
+        pull_request.addComment(message)
 
 
 class BuildHistory(object):

@@ -62,3 +62,4 @@ class TestGithub(ZuulTestCase):
             (pr.number, pr.number, pr.head_sha),
             re.DOTALL
         ))
+        self.assertEqual(1, len(pr.comments))
