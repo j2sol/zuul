@@ -656,6 +656,10 @@ class FakeGithubConnection(githubconnection.GithubConnection):
     def getGitUrl(self, project):
         return os.path.join(self.upstream_root, str(project))
 
+    def report(self, owner, project, pr_number, message, params=None):
+        pull_request = self.pull_requests[pr_number - 1]
+        pull_request.addComment(message)
+
 
 class BuildHistory(object):
     def __init__(self, **kw):

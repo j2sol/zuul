@@ -28,6 +28,15 @@ with a value. For example, ``verified: 1`` becomes ``gerrit review
 A :ref:`connection` that uses the gerrit driver must be supplied to the
 trigger.
 
+GitHub
+------
+
+Zuul reports back to GitHub pull requests via GitHub API.
+It will create a comment containing the job status.
+
+A :ref:`connection` that uses the github driver must be supplied to the
+reporter. It has a string parameter, but it has no special meaning yet.
+
 SMTP
 ----
 
