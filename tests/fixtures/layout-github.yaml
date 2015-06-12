@@ -13,9 +13,27 @@ pipelines:
     failure:
       github: 'TEST FAILED'
 
+  - name: post
+    manager: IndependentPipelineManager
+    source: github
+    trigger:
+      github:
+        - event: push
+
+  - name: tag
+    manager: IndependentPipelineManager
+    source: github
+    trigger:
+      github:
+        - event: tag
+
 projects:
   - name: org/project
     check:
       - project-merge:
         - project-test1
         - project-test2
+    post:
+      - project-post
+    tag:
+      - project-tag

@@ -600,6 +600,36 @@ class FakeGithubConnection(zuul.connection.github.GithubConnection):
         self.pull_requests.append(pull_request)
         return pull_request
 
+    def getTagEvent(self, project, tag, sha=None):
+        if not sha:
+            sha = random_sha1()
+        event_name = 'push'
+        event_data = {
+            'ref': 'refs/tags/%s' % tag,
+            'before': '00000000000000000000000000000000',
+            'after': sha,
+            'repository': {
+                'full_name': project
+            }
+        }
+        return (event_name, event_data)
+
+    def getPushEvent(self, project, branch, old_rev=None, new_rev=None):
+        if not old_rev:
+            old_rev = random_sha1()
+        if not new_rev:
+            new_rev = random_sha1()
+        name = 'push'
+        data = {
+            'ref': 'refs/heads/%s' % branch,
+            'before': old_rev,
+            'after': new_rev,
+            'repository': {
+                'full_name': project
+            }
+        }
+        return (name, data)
+
     def emitEvent(self, event):
         """Emulates sending the GitHub webhook event to the connection."""
         port = self.webapp.server.socket.getsockname()[1]

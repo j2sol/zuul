@@ -69,6 +69,32 @@ class GithubWebhookListener():
             self.log.debug('Scheduling github event: {0}'.format(event.type))
             self.connection.sched.addEvent(event)
 
+    def _event_push(self, request):
+        body = request.json_body
+        base_repo = body.get('repository')
+
+        event = TriggerEvent()
+        event.trigger_name = 'github'
+        event.project_name = base_repo.get('full_name')
+
+        event.ref = body.get('ref')
+        event.oldrev = body.get('before')
+        event.newrev = body.get('after')
+
+        ref_parts = event.ref.split('/')  # ie, ['refs', 'heads', 'master']
+
+        if ref_parts[1] == "heads":
+            event.type = 'push'
+        elif ref_parts[1] == "tags":
+            event.type = 'tag'
+        else:
+            return None
+
+        # necessary for the scheduler to match against particular branches
+        event.branch = ref_parts[2]
+
+        return event
+
     def _event_pull_request(self, request):
         body = request.json_body
         action = body.get('action')

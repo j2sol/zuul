@@ -15,7 +15,7 @@
 import logging
 import time
 
-from zuul.model import NullChange, PullRequest
+from zuul.model import NullChange, PullRequest, Ref
 from zuul.source import BaseSource
 
 
@@ -53,6 +53,12 @@ class GithubSource(BaseSource):
             change.url = event.change_url
             change.updated_at = self._ghTimestampToDate(event.updated_at)
             change.patchset = event.patch_number
+        elif event.ref:
+            change = Ref(project)
+            change.ref = event.ref
+            change.oldrev = event.oldrev
+            change.newrev = event.newrev
+            change.url = self.getGitwebUrl(project, sha=event.newrev)
         else:
             change = NullChange(project)
         return change
@@ -71,7 +77,7 @@ class GithubSource(BaseSource):
 
     def getGitwebUrl(self, project, sha=None):
         """Get the git-web url for a project."""
-        raise NotImplementedError()
+        return self.connection.getGitwebUrl(project, sha)
 
     def _ghTimestampToDate(self, timestamp):
         return time.strptime(timestamp, '%Y-%m-%dT%H:%M:%SZ')
