@@ -578,8 +578,12 @@ class Scheduler(threading.Thread):
                         add_jobs(job_tree, x)
                 if isinstance(job, dict):
                     for parent, children in job.items():
-                        parent_tree = job_tree.addJob(layout.getJob(parent))
-                        add_jobs(parent_tree, children)
+                        parent_job = layout.getJob(parent)
+                        parent_tree = job_tree.addJob(parent_job)
+                        if parent_tree is None:
+                            parent_tree = job_tree.getJobTreeForJob(parent_job)
+                        if parent_tree is not None:
+                            add_jobs(parent_tree, children)
                 if isinstance(job, str):
                     job_tree.addJob(layout.getJob(job))
 
