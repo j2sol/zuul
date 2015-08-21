@@ -1357,6 +1357,9 @@ class ZuulTestCase(BaseTestCase):
 
         self.sched = zuul.scheduler.Scheduler(self.config)
 
+        self.webapp = zuul.webapp.WebApp(
+            self.sched, port=0, listen_address='127.0.0.1')
+
         self.event_queues = [
             self.sched.result_event_queue,
             self.sched.trigger_event_queue,
@@ -1364,7 +1367,7 @@ class ZuulTestCase(BaseTestCase):
         ]
 
         self.configure_connections()
-        self.sched.registerConnections(self.connections)
+        self.sched.registerConnections(self.connections, self.webapp)
 
         def URLOpenerFactory(*args, **kw):
             if isinstance(args[0], urllib.request.Request):
@@ -1404,8 +1407,6 @@ class ZuulTestCase(BaseTestCase):
         self.sched.setNodepool(self.nodepool)
         self.sched.setZooKeeper(self.zk)
 
-        self.webapp = zuul.webapp.WebApp(
-            self.sched, port=0, listen_address='127.0.0.1')
         self.rpc = zuul.rpclistener.RPCListener(self.config, self.sched)
 
         self.sched.start()
