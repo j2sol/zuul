@@ -9,6 +9,8 @@
             - pr-open
             - pr-change
             - pr-reopen
+        - event: pr-comment
+          comment: 'test me'
     success:
       github: 'TEST PASSES'
     failure:
