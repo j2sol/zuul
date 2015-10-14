@@ -33,8 +33,10 @@ class GithubTrigger(BaseTrigger):
         efilters = []
         for trigger in self._toList(trigger_config):
             types = trigger.get('event', None)
+            comments = self._toList(trigger.get('comment'))
             f = EventFilter(trigger=self,
-                            types=self._toList(types))
+                            types=self._toList(types),
+                            comments=comments)
             efilters.append(f)
 
         return efilters
@@ -53,9 +55,11 @@ def getSchema():
                      'pr-change',
                      'pr-close',
                      'pr-reopen',
+                     'pr-comment',
                      'push',
                      'tag',
                      )),
+        'comment': toList(str),
     }
 
     logging.debug("github_trigger")

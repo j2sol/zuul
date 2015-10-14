@@ -120,9 +120,19 @@ following options.
 
     *pr-reopen* - pull request reopened
 
+    *pr-comment* - comment added on pull request
+
     *push* - head reference updated (pushed to branch)
 
     *tag* - new tag created
+
+  **comment**
+  This is only used for ``pr-comment`` events.  It accepts a list of
+  regexes that are searched for in the comment string. If any of these
+  regexes matches a portion of the comment string the trigger is
+  matched. ``comment: retrigger`` will match when comments
+  containing 'retrigger' somewhere in the comment text are added to a
+  pull request.
 
 
 GitHub Configuration

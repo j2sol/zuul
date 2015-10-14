@@ -64,6 +64,18 @@ class TestGithub(ZuulTestCase):
         ))
         self.assertEqual(1, len(pr.comments))
 
+    def test_comment_event(self):
+        pr = self.fake_github.openFakePullRequest('org/project', 'master')
+        self.fake_github.emitEvent(pr.getCommentAddedEvent('test me'))
+        self.waitUntilSettled()
+        self.assertEqual(3, len(self.history))
+
+    def test_comment_unmatched_event(self):
+        pr = self.fake_github.openFakePullRequest('org/project', 'master')
+        self.fake_github.emitEvent(pr.getCommentAddedEvent('casual comment'))
+        self.waitUntilSettled()
+        self.assertEqual(0, len(self.history))
+
     def test_tag_event(self):
         self.worker.hold_jobs_in_build = True
 
