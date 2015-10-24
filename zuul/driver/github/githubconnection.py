@@ -184,6 +184,8 @@ class GithubConnection(BaseConnection):
     driver_name = 'github'
     log = logging.getLogger("connection.github")
     payload_path = 'payload'
+    git_user = 'git'
+    git_host = 'github.com'
 
     def __init__(self, driver, connection_name, connection_config):
         super(GithubConnection, self).__init__(
@@ -191,8 +193,10 @@ class GithubConnection(BaseConnection):
         self.github = None
         self._change_cache = {}
         self.projects = {}
+        self._git_ssh = bool(self.connection_config.get('sshkey', None))
 
     def onLoad(self):
+
         webhook_listener = GithubWebhookListener(self)
         self.registerHttpHandler(self.payload_path,
                                  webhook_listener.handle_request)
@@ -218,11 +222,15 @@ class GithubConnection(BaseConnection):
                 del self._change_cache[key]
 
     def getGitUrl(self, project):
-        url = 'https://%s/%s' % ("github.com", project)
+        if self._git_ssh:
+            url = 'ssh://%s@%s/%s.git' % \
+                (self.git_user, self.git_host, project)
+        else:
+            url = 'https://%s/%s' % (self.git_host, project)
         return url
 
     def getGitwebUrl(self, project, sha=None):
-        url = 'https://%s/%s' % ("github.com", project)
+        url = 'https://%s/%s' % (self.git_host, project)
         if sha is not None:
             url += '/commit/%s' % sha
         return url
