@@ -62,6 +62,7 @@ import zuul.trigger.gerrit
 import zuul.trigger.github
 import zuul.trigger.timer
 import zuul.trigger.zuultrigger
+from zuul.exceptions import MergeFailure
 
 FIXTURE_DIR = os.path.join(os.path.dirname(__file__),
                            'fixtures')
@@ -488,6 +489,7 @@ class FakeGithubPullRequest(object):
         self.statuses = {}
         self.updated_at = None
         self.head_sha = None
+        self.is_merged = False
         self._createPRRef()
         self._addCommitToRepo()
         self._updateTimeStamp()
@@ -621,6 +623,8 @@ class FakeGithubConnection(zuul.connection.github.GithubConnection):
         self.pr_number = 0
         self.pull_requests = []
         self.upstream_root = upstream_root
+        self.merge_failure = False
+        self.merge_not_allowed_count = 0
 
     def openFakePullRequest(self, project, branch):
         self.pr_number += 1
@@ -697,6 +701,16 @@ class FakeGithubConnection(zuul.connection.github.GithubConnection):
     def commentPull(self, owner, project, pr_number, message):
         pull_request = self.pull_requests[pr_number - 1]
         pull_request.addComment(message)
+
+    def mergePull(self, owner, project, pr_number, sha=None):
+        pull_request = self.pull_requests[pr_number - 1]
+        if self.merge_failure:
+            raise Exception('Pull request was not merged')
+        if self.merge_not_allowed_count > 0:
+            self.merge_not_allowed_count -= 1
+            raise MergeFailure('Merge was not successful due to mergeability'
+                               ' conflict')
+        pull_request.is_merged = True
 
     def setCommitStatus(self, owner, project, sha, state,
                         url='', description='', context=''):

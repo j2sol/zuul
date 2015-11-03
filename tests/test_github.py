@@ -15,7 +15,6 @@
 import logging
 import re
 from testtools.matchers import MatchesRegex
-
 from tests.base import ZuulTestCase, random_sha1
 
 logging.basicConfig(level=logging.DEBUG,
@@ -187,3 +186,37 @@ class TestGithub(ZuulTestCase):
         self.worker.release()
         self.waitUntilSettled()
         self.assertEqual(2, len(pr.comments))
+
+    def test_report_pull_merge(self):
+        # pipeline merges the pull request on success
+        pr = self.fake_github.openFakePullRequest('org/project', 'master')
+        self.fake_github.emitEvent(pr.getCommentAddedEvent('merge me'))
+        self.waitUntilSettled()
+        self.assertTrue(pr.is_merged)
+
+    def test_report_pull_merge_failure(self):
+        # pipeline merges the pull request on success
+        self.fake_github.merge_failure = True
+        pr = self.fake_github.openFakePullRequest('org/project', 'master')
+        self.fake_github.emitEvent(pr.getCommentAddedEvent('merge me'))
+        self.waitUntilSettled()
+        self.assertFalse(pr.is_merged)
+        self.fake_github.merge_failure = False
+
+    def test_report_pull_merge_not_allowed_once(self):
+        # pipeline merges the pull request on second run of merge
+        # first merge failed on 405 Method Not Allowed error
+        self.fake_github.merge_not_allowed_count = 1
+        A = self.fake_github.openFakePullRequest('org/project', 'master')
+        self.fake_github.emitEvent(A.getCommentAddedEvent('merge me'))
+        self.waitUntilSettled()
+        self.assertTrue(A.is_merged)
+
+    def test_report_pull_merge_not_allowed_twice(self):
+        # pipeline does not merge the pull request
+        # merge failed on 405 Method Not Allowed error - twice
+        self.fake_github.merge_not_allowed_count = 2
+        A = self.fake_github.openFakePullRequest('org/project', 'master')
+        self.fake_github.emitEvent(A.getCommentAddedEvent('merge me'))
+        self.waitUntilSettled()
+        self.assertFalse(A.is_merged)

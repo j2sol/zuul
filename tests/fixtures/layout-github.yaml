@@ -41,6 +41,18 @@ pipelines:
       github:
         comment: false
 
+  - name: merge
+    description: Pipeline for merging the pull request
+    manager: IndependentPipelineManager
+    source: github
+    trigger:
+      github:
+        - event: pr-comment
+          comment: 'merge me'
+    success:
+      github:
+        merge: true
+
   - name: post
     manager: IndependentPipelineManager
     source: github
@@ -61,6 +73,8 @@ projects:
       - project-merge:
         - project-test1
         - project-test2
+    merge:
+      - noop
     post:
       - project-post
     tag:
