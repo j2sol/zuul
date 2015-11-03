@@ -21,9 +21,11 @@ import webob
 import webob.dec
 import voluptuous as v
 import github3
+from github3.exceptions import MethodNotAllowed
 
 from zuul.connection import BaseConnection
 from zuul.model import PullRequest, Ref, TriggerEvent
+from zuul.exceptions import MergeFailure
 
 
 class GithubWebhookListener():
@@ -274,13 +276,24 @@ class GithubConnection(BaseConnection):
 
     def getPull(self, project_name, number):
         owner, proj = project_name.split('/')
-        return self.github.pull_request(owner, proj, number).to_json()
+        return self.github.pull_request(owner, proj, number).to_dict()
 
     def commentPull(self, project, pr_number, message):
         owner, proj = project.name.split('/')
         repository = self.github.repository(owner, proj)
         pull_request = repository.issue(pr_number)
         pull_request.create_comment(message)
+
+    def mergePull(self, project, pr_number, sha=None):
+        owner, proj = project.name.split('/')
+        pull_request = self.github.pull_request(owner, proj, pr_number)
+        try:
+            result = pull_request.merge(sha=sha)
+        except MethodNotAllowed as e:
+            raise MergeFailure('Merge was not successful due to mergeability'
+                               ' conflict, original error is %s' % e)
+        if not result:
+            raise Exception('Pull request was not merged')
 
     def setCommitStatus(self, project, sha, state, url='', description='',
                         context=''):
