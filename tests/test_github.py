@@ -15,6 +15,7 @@
 import logging
 import re
 from testtools.matchers import MatchesRegex
+import time
 from tests.base import ZuulTestCase, random_sha1
 
 logging.basicConfig(level=logging.DEBUG,
@@ -141,6 +142,45 @@ class TestGithub(ZuulTestCase):
         self.waitUntilSettled()
         self.assertEqual(0, len(self.history))
         self.assertEqual(['other label'], pr.labels)
+
+    def test_dequeue_pull_synchronized(self):
+        self.worker.hold_jobs_in_build = True
+
+        pr = self.fake_github.openFakePullRequest(
+            'org/one-job-project', 'master')
+        self.fake_github.emitEvent(pr.getPullRequestOpenedEvent())
+        self.waitUntilSettled()
+
+        # event update stamp has resolution one second, wait so the latter
+        # one has newer timestamp
+        time.sleep(1)
+        pr.addCommit()
+        self.fake_github.emitEvent(pr.getPullRequestSynchronizeEvent())
+        self.waitUntilSettled()
+
+        self.worker.hold_jobs_in_build = False
+        self.worker.release()
+        self.waitUntilSettled()
+
+        self.assertEqual(2, len(self.history))
+        self.assertEqual(1, self.countJobResults(self.history, 'ABORTED'))
+
+    def test_dequeue_pull_abandoned(self):
+        self.worker.hold_jobs_in_build = True
+
+        pr = self.fake_github.openFakePullRequest(
+            'org/one-job-project', 'master')
+        self.fake_github.emitEvent(pr.getPullRequestOpenedEvent())
+        self.waitUntilSettled()
+        self.fake_github.emitEvent(pr.getPullRequestClosedEvent())
+        self.waitUntilSettled()
+
+        self.worker.hold_jobs_in_build = False
+        self.worker.release()
+        self.waitUntilSettled()
+
+        self.assertEqual(1, len(self.history))
+        self.assertEqual(1, self.countJobResults(self.history, 'ABORTED'))
 
     def test_git_https_url(self):
         """Test that git_ssh option gives git url with ssh"""

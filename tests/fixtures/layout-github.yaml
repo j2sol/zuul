@@ -100,3 +100,7 @@ projects:
       - project-test1
     labels:
       - project-labels
+
+  - name: org/one-job-project
+    check:
+      - one-job-project-merge

@@ -1088,6 +1088,21 @@ class TriggerEvent(object):
 
         return ret
 
+    def isPatchsetCreated(self):
+        return 'patchset-created' == self.type
+
+    def isChangeAbandoned(self):
+        return 'change-abandoned' == self.type
+
+
+class GithubTriggerEvent(TriggerEvent):
+
+    def isPatchsetCreated(self):
+        return self.type in ['pr-open', 'pr-change']
+
+    def isChangeAbandoned(self):
+        return 'pr-close' == self.type
+
 
 class BaseFilter(object):
     def __init__(self, required_approvals=[], reject_approvals=[]):

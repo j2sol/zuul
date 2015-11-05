@@ -1066,9 +1066,9 @@ class Scheduler(threading.Thread):
                 if not project or project.foreign:
                     self.log.debug("Project %s not found" % event.project_name)
                     continue
-                if event.type == 'patchset-created':
+                if event.isPatchsetCreated():
                     pipeline.manager.removeOldVersionsOfChange(change)
-                elif event.type == 'change-abandoned':
+                elif event.isChangeAbandoned():
                     pipeline.manager.removeAbandonedChange(change)
                 if pipeline.manager.eventMatches(event, change):
                     self.log.info("Adding %s, %s to %s" %
