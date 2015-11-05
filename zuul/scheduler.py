@@ -766,9 +766,9 @@ class Scheduler(threading.Thread):
                         change.project.unparsed_config = None
                         self.reconfigureTenant(tenant)
                         reconfigured_tenant = True
-                    if event.type == 'patchset-created':
+                    if event.isPatchsetCreated():
                         pipeline.manager.removeOldVersionsOfChange(change)
-                    elif event.type == 'change-abandoned':
+                    elif event.isChangeAbandoned():
                         pipeline.manager.removeAbandonedChange(change)
                     if pipeline.manager.eventMatches(event, change):
                         pipeline.manager.addChange(change)

@@ -104,6 +104,8 @@
     name: project-tag
 - job:
     name: project-labels
+- job:
+    name: one-job-project-merge
 
 - project:
     name: org/project
@@ -126,3 +128,9 @@
     labels:
       jobs:
         - project-labels
+
+- project:
+    name: org/one-job-project
+    check:
+      jobs:
+        - one-job-project-merge
