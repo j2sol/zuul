@@ -118,6 +118,30 @@ class TestGithub(ZuulTestCase):
         self.assertEqual('SUCCESS',
                          self.getJobFromHistory('project-post').result)
 
+    def test_label_added_event(self):
+        pr = self.fake_github.openFakePullRequest('org/project', 'master')
+        self.fake_github.emitEvent(pr.addLabel('test'))
+        self.waitUntilSettled()
+        self.assertEqual(1, len(self.history))
+        self.assertEqual('project-labels', self.history[0].name)
+        self.assertEqual(['tests passed'], pr.labels)
+
+    def test_label_removed_event(self):
+        pr = self.fake_github.openFakePullRequest('org/project', 'master')
+        pr.addLabel('do not test')
+        self.fake_github.emitEvent(pr.removeLabel('do not test'))
+        self.waitUntilSettled()
+        self.assertEqual(1, len(self.history))
+        self.assertEqual('project-labels', self.history[0].name)
+        self.assertEqual(['tests passed'], pr.labels)
+
+    def test_label_added_unmatched_event(self):
+        pr = self.fake_github.openFakePullRequest('org/project', 'master')
+        self.fake_github.emitEvent(pr.addLabel('other label'))
+        self.waitUntilSettled()
+        self.assertEqual(0, len(self.history))
+        self.assertEqual(['other label'], pr.labels)
+
     def test_git_https_url(self):
         """Test that git_ssh option gives git url with ssh"""
         url = self.fake_github.real_getGitUrl('org/project')

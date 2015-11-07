@@ -55,6 +55,13 @@ reporter. It has the following options.
   merge the pull reqeust. Defaults to ``false``.
   ``merge=false``
 
+  **label**
+  List of strings each representing an exact label name which should be added
+  to the pull request by reporter. To remove a label by reporter prepend a dash
+  to the label name. Defaults to empty list.
+  ``label: 'test successful'``
+  ``label: '-test failed'``
+
 
 SMTP
 ----

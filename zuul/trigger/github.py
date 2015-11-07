@@ -34,9 +34,11 @@ class GithubTrigger(BaseTrigger):
         for trigger in self._toList(trigger_config):
             types = trigger.get('event', None)
             comments = self._toList(trigger.get('comment'))
+            labels = self._toList(trigger.get('label'))
             f = EventFilter(trigger=self,
                             types=self._toList(types),
-                            comments=comments)
+                            comments=comments,
+                            labels=labels)
             efilters.append(f)
 
         return efilters
@@ -56,10 +58,12 @@ def getSchema():
                      'pr-close',
                      'pr-reopen',
                      'pr-comment',
+                     'pr-label',
                      'push',
                      'tag',
                      )),
         'comment': toList(str),
+        'label': toList(str),
     }
 
     logging.debug("github_trigger")

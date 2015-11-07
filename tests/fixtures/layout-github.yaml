@@ -53,6 +53,23 @@ pipelines:
       github:
         merge: true
 
+  - name: labels
+    description: Trigger on labels
+    manager: IndependentPipelineManager
+    source: github
+    trigger:
+      github:
+        - event: pr-label
+          label:
+            - 'test'
+            - '-do not test'
+
+    success:
+      github:
+        label:
+          - 'tests passed'
+          - '-test'
+
   - name: post
     manager: IndependentPipelineManager
     source: github
@@ -81,3 +98,5 @@ projects:
       - project-tag
     reporting:
       - project-test1
+    labels:
+      - project-labels
