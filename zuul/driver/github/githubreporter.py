@@ -31,6 +31,9 @@ class GithubReporter(BaseReporter):
         self._commit_status = self.config.get('status', None)
         self._create_comment = self.config.get('comment', True)
         self._merge = self.config.get('merge', False)
+        self._labels = self.config.get('label', [])
+        if not isinstance(self._labels, list):
+            self._labels = [self._labels]
 
     def report(self, source, pipeline, item):
         """Comment on PR and set commit status."""
@@ -43,6 +46,8 @@ class GithubReporter(BaseReporter):
         if (self._merge and
             hasattr(item.change, 'number')):
             self.mergePull(item)
+        if self._labels:
+            self.setLabels(item)
 
     def addPullComment(self, pipeline, item):
         message = self._formatItemReport(pipeline, item)
@@ -89,11 +94,26 @@ class GithubReporter(BaseReporter):
             self.connection.mergePull(project, pr_number, sha)
         item.change.is_merged = True
 
+    def setLabels(self, item):
+        project = item.change.project.name
+        pr_number = item.change.number
+        self.log.debug('Reporting change %s, params %s, labels:\n%s' %
+                       (item.change, self.config, self._labels))
+        for label in self._labels:
+            if label.startswith('-'):
+                self.connection.unlabelPull(project, pr_number, label[1:])
+            else:
+                self.connection.labelPull(project, pr_number, label)
+
 
 def getSchema():
+    def toList(x):
+        return v.Any([x], x)
+
     github_reporter = v.Schema({
         'status': v.Any('pending', 'success', 'failure'),
         'comment': bool,
-        'merge': bool
+        'merge': bool,
+        'label': toList(str)
     })
     return github_reporter
