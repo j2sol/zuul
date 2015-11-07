@@ -121,6 +121,8 @@ following options.
 
     *pr-comment* - comment added on pull request
 
+    *pr-label* - label added or removed on pull request
+
     *push* - head reference updated (pushed to branch)
 
     *tag* - new tag created
@@ -132,6 +134,14 @@ following options.
   matched. ``comment: retrigger`` will match when comments
   containing 'retrigger' somewhere in the comment text are added to a
   pull request.
+
+  **label**
+  This is only used for ``pr-label`` events. It accepts a list of strings each
+  of which matches the label name in the event literally. Prepending a dash to
+  a label name means to match on that label removal.  ``label: recheck`` will
+  match when pull request is labeled with a ``recheck`` label. ``label: '-do
+  not test'`` will match when a label with name ``do not test`` is removed from
+  the pull request.
 
 GitHub Configuration
 ~~~~~~~~~~~~~~~~~~~~
