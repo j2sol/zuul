@@ -109,6 +109,12 @@ class GithubWebhookListener():
             event.action = 'closed'
         elif action == 'reopened':
             event.action = 'reopened'
+        elif action == 'labeled':
+            action = 'label'
+            event.label = body['label']['name']
+        elif action == 'unlabeled':
+            action = 'label'
+            event.label = '-' + body['label']['name']
         else:
             return None
 
@@ -120,12 +126,11 @@ class GithubWebhookListener():
         action = body.get('action')
         if action != 'created':
             return
+        pr_body = self._issue_to_pull_request(body)
         number = body.get('issue').get('number')
         project_name = body.get('repository').get('full_name')
         pr_body = self.connection.getPull(project_name, number)
         if pr_body is None:
-            self.log.debug('Pull request #%s not found in project %s' %
-                           (number, project_name))
             return
 
         event = self._pull_request_to_event(pr_body)
@@ -133,6 +138,15 @@ class GithubWebhookListener():
         event.type = 'pull_request'
         event.action = 'comment'
         return event
+
+    def _issue_to_pull_request(self, body):
+        number = body.get('issue').get('number')
+        project_name = body.get('repository').get('full_name')
+        pr_body = self.connection.getPull(project_name, number)
+        if pr_body is None:
+            self.log.debug('Pull request #%s not found in project %s' %
+                           (number, project_name))
+        return pr_body
 
     def _validate_signature(self, request):
         secret = self.connection.connection_config.get('webhook_token', None)
@@ -300,6 +314,16 @@ class GithubConnection(BaseConnection):
         owner, proj = project.name.split('/')
         repository = self.github.repository(owner, proj)
         repository.create_status(sha, state, url, description, context)
+
+    def labelPull(self, project, pr_number, label):
+        owner, proj = project.name.split('/')
+        pull_request = self.github.issue(owner, proj, pr_number)
+        pull_request.add_labels(label)
+
+    def unlabelPull(self, project, pr_number, label):
+        owner, proj = project.name.split('/')
+        pull_request = self.github.issue(owner, proj, pr_number)
+        pull_request.remove_label(label)
 
     def _ghTimestampToDate(self, timestamp):
         return time.strptime(timestamp, '%Y-%m-%dT%H:%M:%SZ')
