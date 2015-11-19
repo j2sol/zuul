@@ -34,14 +34,14 @@ class TestGithub(ZuulTestCase):
 
         self.worker.hold_jobs_in_build = True
 
-        pr = self.fake_github.openFakePullRequest('org/project', 'master')
-        self.fake_github.emitEvent(pr.getPullRequestOpenedEvent())
+        A = self.fake_github.openFakePullRequest('org/project', 'master', 'A')
+        self.fake_github.emitEvent(A.getPullRequestOpenedEvent())
         self.waitUntilSettled()
 
         build_params = self.builds[0].parameters
         self.assertEqual('master', build_params['ZUUL_BRANCH'])
-        self.assertEqual(str(pr.number), build_params['ZUUL_CHANGE'])
-        self.assertEqual(pr.head_sha, build_params['ZUUL_PATCHSET'])
+        self.assertEqual(str(A.number), build_params['ZUUL_CHANGE'])
+        self.assertEqual(A.head_sha, build_params['ZUUL_PATCHSET'])
 
         self.worker.hold_jobs_in_build = False
         self.worker.release()
@@ -59,20 +59,20 @@ class TestGithub(ZuulTestCase):
             r'.*<\s*a\s+href='
             '[\'"]https://github.com/org/project/pull/%s[\'"]'
             '\s*>%s,%s<\s*/a\s*>' %
-            (pr.number, pr.number, pr.head_sha),
+            (A.number, A.number, A.head_sha),
             re.DOTALL
         ))
-        self.assertEqual(1, len(pr.comments))
+        self.assertEqual(1, len(A.comments))
 
     def test_comment_event(self):
-        pr = self.fake_github.openFakePullRequest('org/project', 'master')
-        self.fake_github.emitEvent(pr.getCommentAddedEvent('test me'))
+        A = self.fake_github.openFakePullRequest('org/project', 'master', 'A')
+        self.fake_github.emitEvent(A.getCommentAddedEvent('test me'))
         self.waitUntilSettled()
         self.assertEqual(3, len(self.history))
 
     def test_comment_unmatched_event(self):
-        pr = self.fake_github.openFakePullRequest('org/project', 'master')
-        self.fake_github.emitEvent(pr.getCommentAddedEvent('casual comment'))
+        A = self.fake_github.openFakePullRequest('org/project', 'master', 'A')
+        self.fake_github.emitEvent(A.getCommentAddedEvent('casual comment'))
         self.waitUntilSettled()
         self.assertEqual(0, len(self.history))
 
@@ -120,42 +120,42 @@ class TestGithub(ZuulTestCase):
                          self.getJobFromHistory('project-post').result)
 
     def test_label_added_event(self):
-        pr = self.fake_github.openFakePullRequest('org/project', 'master')
-        self.fake_github.emitEvent(pr.addLabel('test'))
+        A = self.fake_github.openFakePullRequest('org/project', 'master', 'A')
+        self.fake_github.emitEvent(A.addLabel('test'))
         self.waitUntilSettled()
         self.assertEqual(1, len(self.history))
         self.assertEqual('project-labels', self.history[0].name)
-        self.assertEqual(['tests passed'], pr.labels)
+        self.assertEqual(['tests passed'], A.labels)
 
     def test_label_removed_event(self):
-        pr = self.fake_github.openFakePullRequest('org/project', 'master')
-        pr.addLabel('do not test')
-        self.fake_github.emitEvent(pr.removeLabel('do not test'))
+        A = self.fake_github.openFakePullRequest('org/project', 'master', 'A')
+        A.addLabel('do not test')
+        self.fake_github.emitEvent(A.removeLabel('do not test'))
         self.waitUntilSettled()
         self.assertEqual(1, len(self.history))
         self.assertEqual('project-labels', self.history[0].name)
-        self.assertEqual(['tests passed'], pr.labels)
+        self.assertEqual(['tests passed'], A.labels)
 
     def test_label_added_unmatched_event(self):
-        pr = self.fake_github.openFakePullRequest('org/project', 'master')
-        self.fake_github.emitEvent(pr.addLabel('other label'))
+        A = self.fake_github.openFakePullRequest('org/project', 'master', 'A')
+        self.fake_github.emitEvent(A.addLabel('other label'))
         self.waitUntilSettled()
         self.assertEqual(0, len(self.history))
-        self.assertEqual(['other label'], pr.labels)
+        self.assertEqual(['other label'], A.labels)
 
     def test_dequeue_pull_synchronized(self):
         self.worker.hold_jobs_in_build = True
 
-        pr = self.fake_github.openFakePullRequest(
-            'org/one-job-project', 'master')
-        self.fake_github.emitEvent(pr.getPullRequestOpenedEvent())
+        A = self.fake_github.openFakePullRequest(
+            'org/one-job-project', 'master', 'A')
+        self.fake_github.emitEvent(A.getPullRequestOpenedEvent())
         self.waitUntilSettled()
 
         # event update stamp has resolution one second, wait so the latter
         # one has newer timestamp
         time.sleep(1)
-        pr.addCommit()
-        self.fake_github.emitEvent(pr.getPullRequestSynchronizeEvent())
+        A.addCommit()
+        self.fake_github.emitEvent(A.getPullRequestSynchronizeEvent())
         self.waitUntilSettled()
 
         self.worker.hold_jobs_in_build = False
@@ -168,11 +168,11 @@ class TestGithub(ZuulTestCase):
     def test_dequeue_pull_abandoned(self):
         self.worker.hold_jobs_in_build = True
 
-        pr = self.fake_github.openFakePullRequest(
-            'org/one-job-project', 'master')
-        self.fake_github.emitEvent(pr.getPullRequestOpenedEvent())
+        A = self.fake_github.openFakePullRequest(
+            'org/one-job-project', 'master', 'A')
+        self.fake_github.emitEvent(A.getPullRequestOpenedEvent())
         self.waitUntilSettled()
-        self.fake_github.emitEvent(pr.getPullRequestClosedEvent())
+        self.fake_github.emitEvent(A.getPullRequestClosedEvent())
         self.waitUntilSettled()
 
         self.worker.hold_jobs_in_build = False
@@ -195,11 +195,11 @@ class TestGithub(ZuulTestCase):
     def test_report_pull_status(self):
         # pipeline reports pull status both on start and success
         self.worker.hold_jobs_in_build = True
-        pr = self.fake_github.openFakePullRequest('org/project', 'master')
-        self.fake_github.emitEvent(pr.getPullRequestOpenedEvent())
+        A = self.fake_github.openFakePullRequest('org/project', 'master', 'A')
+        self.fake_github.emitEvent(A.getPullRequestOpenedEvent())
         self.waitUntilSettled()
-        self.assertIn('check', pr.statuses)
-        check_status = pr.statuses['check']
+        self.assertIn('check', A.statuses)
+        check_status = A.statuses['check']
         self.assertEqual('Standard check', check_status['description'])
         self.assertEqual('pending', check_status['state'])
         self.assertEqual('http://zuul.example.com/status', check_status['url'])
@@ -207,7 +207,7 @@ class TestGithub(ZuulTestCase):
         self.worker.hold_jobs_in_build = False
         self.worker.release()
         self.waitUntilSettled()
-        check_status = pr.statuses['check']
+        check_status = A.statuses['check']
         self.assertEqual('Standard check', check_status['description'])
         self.assertEqual('success', check_status['state'])
         self.assertEqual('', check_status['url'])
@@ -215,63 +215,63 @@ class TestGithub(ZuulTestCase):
         # pipeline does not report any status
         self.worker.hold_jobs_in_build = True
         self.fake_github.emitEvent(
-            pr.getCommentAddedEvent('reporting check'))
+            A.getCommentAddedEvent('reporting check'))
         self.waitUntilSettled()
-        self.assertNotIn('reporting', pr.statuses)
+        self.assertNotIn('reporting', A.statuses)
         self.worker.hold_jobs_in_build = False
         self.worker.release()
         self.waitUntilSettled()
-        self.assertNotIn('reporting', pr.statuses)
+        self.assertNotIn('reporting', A.statuses)
 
     def test_report_pull_comment(self):
         # pipeline reports comment on success
         self.worker.hold_jobs_in_build = True
-        pr = self.fake_github.openFakePullRequest('org/project', 'master')
-        self.fake_github.emitEvent(pr.getPullRequestOpenedEvent())
+        A = self.fake_github.openFakePullRequest('org/project', 'master', 'A')
+        self.fake_github.emitEvent(A.getPullRequestOpenedEvent())
         self.waitUntilSettled()
-        self.assertEqual(0, len(pr.comments))
+        self.assertEqual(0, len(A.comments))
 
         self.worker.hold_jobs_in_build = False
         self.worker.release()
         self.waitUntilSettled()
-        self.assertEqual(1, len(pr.comments))
-        self.assertThat(pr.comments[0],
+        self.assertEqual(1, len(A.comments))
+        self.assertThat(A.comments[0],
                         MatchesRegex('.*Build succeeded.*', re.DOTALL))
 
         # pipeline reports comment on start
         self.worker.hold_jobs_in_build = True
         self.fake_github.emitEvent(
-            pr.getCommentAddedEvent('reporting check'))
+            A.getCommentAddedEvent('reporting check'))
         self.waitUntilSettled()
-        self.assertEqual(2, len(pr.comments))
-        self.assertThat(pr.comments[1],
+        self.assertEqual(2, len(A.comments))
+        self.assertThat(A.comments[1],
                         MatchesRegex('.*Starting reporting jobs.*', re.DOTALL))
         self.worker.hold_jobs_in_build = False
         self.worker.release()
         self.waitUntilSettled()
-        self.assertEqual(2, len(pr.comments))
+        self.assertEqual(2, len(A.comments))
 
     def test_report_pull_merge(self):
         # pipeline merges the pull request on success
-        pr = self.fake_github.openFakePullRequest('org/project', 'master')
-        self.fake_github.emitEvent(pr.getCommentAddedEvent('merge me'))
+        A = self.fake_github.openFakePullRequest('org/project', 'master', 'A')
+        self.fake_github.emitEvent(A.getCommentAddedEvent('merge me'))
         self.waitUntilSettled()
-        self.assertTrue(pr.is_merged)
+        self.assertTrue(A.is_merged)
 
     def test_report_pull_merge_failure(self):
         # pipeline merges the pull request on success
         self.fake_github.merge_failure = True
-        pr = self.fake_github.openFakePullRequest('org/project', 'master')
-        self.fake_github.emitEvent(pr.getCommentAddedEvent('merge me'))
+        A = self.fake_github.openFakePullRequest('org/project', 'master', 'A')
+        self.fake_github.emitEvent(A.getCommentAddedEvent('merge me'))
         self.waitUntilSettled()
-        self.assertFalse(pr.is_merged)
+        self.assertFalse(A.is_merged)
         self.fake_github.merge_failure = False
 
     def test_report_pull_merge_not_allowed_once(self):
         # pipeline merges the pull request on second run of merge
         # first merge failed on 405 Method Not Allowed error
         self.fake_github.merge_not_allowed_count = 1
-        A = self.fake_github.openFakePullRequest('org/project', 'master')
+        A = self.fake_github.openFakePullRequest('org/project', 'master', 'A')
         self.fake_github.emitEvent(A.getCommentAddedEvent('merge me'))
         self.waitUntilSettled()
         self.assertTrue(A.is_merged)
@@ -280,7 +280,177 @@ class TestGithub(ZuulTestCase):
         # pipeline does not merge the pull request
         # merge failed on 405 Method Not Allowed error - twice
         self.fake_github.merge_not_allowed_count = 2
-        A = self.fake_github.openFakePullRequest('org/project', 'master')
+        A = self.fake_github.openFakePullRequest('org/project', 'master', 'A')
         self.fake_github.emitEvent(A.getCommentAddedEvent('merge me'))
         self.waitUntilSettled()
         self.assertFalse(A.is_merged)
+
+    def test_parallel_changes(self):
+        "Test that changes are tested in parallel and merged in series"
+
+        self.worker.hold_jobs_in_build = True
+        A = self.fake_github.openFakePullRequest('org/project', 'master', 'A')
+        B = self.fake_github.openFakePullRequest('org/project', 'master', 'B')
+        C = self.fake_github.openFakePullRequest('org/project', 'master', 'C')
+
+        self.fake_github.emitEvent(A.addLabel('merge'))
+        self.fake_github.emitEvent(B.addLabel('merge'))
+        self.fake_github.emitEvent(C.addLabel('merge'))
+
+        self.waitUntilSettled()
+        self.assertEqual(len(self.builds), 1)
+        self.assertEqual(self.builds[0].name, 'project-merge')
+        self.assertTrue(self.job_has_changes(self.builds[0], A))
+
+        self.worker.release('.*-merge')
+        self.waitUntilSettled()
+        self.assertEqual(len(self.builds), 3)
+        self.assertEqual(self.builds[0].name, 'project-test1')
+        self.assertTrue(self.job_has_changes(self.builds[0], A))
+        self.assertEqual(self.builds[1].name, 'project-test2')
+        self.assertTrue(self.job_has_changes(self.builds[1], A))
+        self.assertEqual(self.builds[2].name, 'project-merge')
+        self.assertTrue(self.job_has_changes(self.builds[2], A, B))
+
+        self.worker.release('.*-merge')
+        self.waitUntilSettled()
+        self.assertEqual(len(self.builds), 5)
+        self.assertEqual(self.builds[0].name, 'project-test1')
+        self.assertTrue(self.job_has_changes(self.builds[0], A))
+        self.assertEqual(self.builds[1].name, 'project-test2')
+        self.assertTrue(self.job_has_changes(self.builds[1], A))
+
+        self.assertEqual(self.builds[2].name, 'project-test1')
+        self.assertTrue(self.job_has_changes(self.builds[2], A, B))
+        self.assertEqual(self.builds[3].name, 'project-test2')
+        self.assertTrue(self.job_has_changes(self.builds[3], A, B))
+
+        self.assertEqual(self.builds[4].name, 'project-merge')
+        self.assertTrue(self.job_has_changes(self.builds[4], A, B, C))
+
+        self.worker.release('.*-merge')
+        self.waitUntilSettled()
+        self.assertEqual(len(self.builds), 6)
+        self.assertEqual(self.builds[0].name, 'project-test1')
+        self.assertTrue(self.job_has_changes(self.builds[0], A))
+        self.assertEqual(self.builds[1].name, 'project-test2')
+        self.assertTrue(self.job_has_changes(self.builds[1], A))
+
+        self.assertEqual(self.builds[2].name, 'project-test1')
+        self.assertTrue(self.job_has_changes(self.builds[2], A, B))
+        self.assertEqual(self.builds[3].name, 'project-test2')
+        self.assertTrue(self.job_has_changes(self.builds[3], A, B))
+
+        self.assertEqual(self.builds[4].name, 'project-test1')
+        self.assertTrue(self.job_has_changes(self.builds[4], A, B, C))
+        self.assertEqual(self.builds[5].name, 'project-test2')
+        self.assertTrue(self.job_has_changes(self.builds[5], A, B, C))
+
+        all_builds = self.builds[:]
+        self.release(all_builds[2])
+        self.release(all_builds[3])
+        self.waitUntilSettled()
+        self.assertFalse(A.is_merged)
+        self.assertFalse(B.is_merged)
+        self.assertFalse(C.is_merged)
+
+        self.release(all_builds[0])
+        self.release(all_builds[1])
+        self.waitUntilSettled()
+        self.assertTrue(A.is_merged)
+        self.assertTrue(B.is_merged)
+        self.assertFalse(C.is_merged)
+
+        self.worker.hold_jobs_in_build = False
+        self.worker.release()
+        self.waitUntilSettled()
+        self.assertEqual(len(self.builds), 0)
+        self.assertEqual(len(self.history), 9)
+        self.assertTrue(C.is_merged)
+
+        self.assertNotIn('merge', A.labels)
+        self.assertNotIn('merge', B.labels)
+        self.assertNotIn('merge', C.labels)
+
+    def test_failed_changes(self):
+        "Test that a change behind a failed change is retested"
+        self.worker.hold_jobs_in_build = True
+
+        A = self.fake_github.openFakePullRequest('org/project', 'master', 'A')
+        B = self.fake_github.openFakePullRequest('org/project', 'master', 'B')
+
+        self.worker.addFailTest('project-test1', A)
+
+        self.fake_github.emitEvent(A.addLabel('merge'))
+        self.fake_github.emitEvent(B.addLabel('merge'))
+        self.waitUntilSettled()
+
+        self.worker.release('.*-merge')
+        self.waitUntilSettled()
+
+        self.worker.hold_jobs_in_build = False
+        self.worker.release()
+
+        self.waitUntilSettled()
+        # It's certain that the merge job for change 2 will run, but
+        # the test1 and test2 jobs may or may not run.
+        self.assertTrue(len(self.history) > 6)
+        self.assertFalse(A.is_merged)
+        self.assertTrue(B.is_merged)
+        self.assertNotIn('merge', A.labels)
+        self.assertNotIn('merge', B.labels)
+
+    def test_failed_change_at_head(self):
+        "Test that if a change at the head fails, jobs behind it are canceled"
+
+        self.worker.hold_jobs_in_build = True
+        A = self.fake_github.openFakePullRequest('org/project', 'master', 'A')
+        B = self.fake_github.openFakePullRequest('org/project', 'master', 'B')
+        C = self.fake_github.openFakePullRequest('org/project', 'master', 'C')
+
+        self.worker.addFailTest('project-test1', A)
+
+        self.fake_github.emitEvent(A.addLabel('merge'))
+        self.fake_github.emitEvent(B.addLabel('merge'))
+        self.fake_github.emitEvent(C.addLabel('merge'))
+
+        self.waitUntilSettled()
+
+        self.assertEqual(len(self.builds), 1)
+        self.assertEqual(self.builds[0].name, 'project-merge')
+        self.assertTrue(self.job_has_changes(self.builds[0], A))
+
+        self.worker.release('.*-merge')
+        self.waitUntilSettled()
+        self.worker.release('.*-merge')
+        self.waitUntilSettled()
+        self.worker.release('.*-merge')
+        self.waitUntilSettled()
+
+        self.assertEqual(len(self.builds), 6)
+        self.assertEqual(self.builds[0].name, 'project-test1')
+        self.assertEqual(self.builds[1].name, 'project-test2')
+        self.assertEqual(self.builds[2].name, 'project-test1')
+        self.assertEqual(self.builds[3].name, 'project-test2')
+        self.assertEqual(self.builds[4].name, 'project-test1')
+        self.assertEqual(self.builds[5].name, 'project-test2')
+
+        self.release(self.builds[0])
+        self.waitUntilSettled()
+
+        # project-test2, project-merge for B
+        self.assertEqual(len(self.builds), 2)
+        self.assertEqual(self.countJobResults(self.history, 'ABORTED'), 4)
+
+        self.worker.hold_jobs_in_build = False
+        self.worker.release()
+        self.waitUntilSettled()
+
+        self.assertEqual(len(self.builds), 0)
+        self.assertEqual(len(self.history), 15)
+        self.assertFalse(A.is_merged)
+        self.assertTrue(B.is_merged)
+        self.assertTrue(C.is_merged)
+        self.assertNotIn('merge', A.labels)
+        self.assertNotIn('merge', B.labels)
+        self.assertNotIn('merge', C.labels)
