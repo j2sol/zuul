@@ -128,6 +128,18 @@ following options.
 
     *tag* - new tag created
 
+  **branch**
+  The branch associated with the event. Example: ``master``.  This
+  field is treated as a regular expression, and multiple branches may
+  be listed. Used for ``pr-*`` events.
+
+  **ref**
+  Reference updated on ``push`` or ``tag`` event. This field is treated as a
+  regular expression and multiple refs may be listed. Github always sends full
+  ref name, eg. ``refs/tags/bar`` and this string is matched against the
+  regexp. Used for ``push`` and ``tag`` events.
+
+
   **comment**
   This is only used for ``pr-comment`` events.  It accepts a list of
   regexes that are searched for in the comment string. If any of these

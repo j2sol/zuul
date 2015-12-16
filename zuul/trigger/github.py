@@ -22,23 +22,24 @@ class GithubTrigger(BaseTrigger):
     name = 'github'
     log = logging.getLogger("zuul.GithubTrigger")
 
-    def _toList(self, item):
-        if not item:
-            return []
-        if isinstance(item, list):
-            return item
-        return [item]
-
     def getEventFilters(self, trigger_config):
+        def toList(item):
+            if not item:
+                return []
+            if isinstance(item, list):
+                return item
+            return [item]
+
         efilters = []
-        for trigger in self._toList(trigger_config):
-            types = trigger.get('event', None)
-            comments = self._toList(trigger.get('comment'))
-            labels = self._toList(trigger.get('label'))
-            f = EventFilter(trigger=self,
-                            types=self._toList(types),
-                            comments=comments,
-                            labels=labels)
+        for trigger in toList(trigger_config):
+            f = EventFilter(
+                trigger=self,
+                types=toList(trigger['event']),
+                branches=toList(trigger.get('branch')),
+                refs=toList(trigger.get('ref')),
+                comments=toList(trigger.get('comment')),
+                labels=toList(trigger.get('label'))
+            )
             efilters.append(f)
 
         return efilters
@@ -62,6 +63,8 @@ def getSchema():
                      'push',
                      'tag',
                      )),
+        'branch': toList(str),
+        'ref': toList(str),
         'comment': toList(str),
         'label': toList(str),
     }
