@@ -22,27 +22,25 @@ class GithubTrigger(BaseTrigger):
     name = 'github'
     log = logging.getLogger("zuul.trigger.GithubTrigger")
 
-    def _toList(self, item):
-        if not item:
-            return []
-        if isinstance(item, list):
-            return item
-        return [item]
-
     def getEventFilters(self, trigger_config):
+        def toList(item):
+            if not item:
+                return []
+            if isinstance(item, list):
+                return item
+            return [item]
+
         efilters = []
-        for trigger in self._toList(trigger_config):
-            types = trigger.get('event', None)
-            actions = trigger.get('action')
-            refs = trigger.get('refs')
-            comments = self._toList(trigger.get('comment'))
-            labels = trigger.get('label')
-            f = EventFilter(trigger=self,
-                            types=self._toList(types),
-                            actions=self._toList(actions),
-                            refs=self._toList(refs),
-                            comments=self._toList(comments),
-                            labels=self._toList(labels))
+        for trigger in toList(trigger_config):
+            f = EventFilter(
+                trigger=self,
+                types=toList(trigger['event']),
+                actions=toList(trigger.get('action')),
+                branches=toList(trigger.get('branch')),
+                refs=toList(trigger.get('ref')),
+                comments=toList(trigger.get('comment')),
+                labels=toList(trigger.get('label'))
+            )
             efilters.append(f)
 
         return efilters
@@ -60,6 +58,7 @@ def getSchema():
             toList(v.Any('pull_request',
                          'push')),
         'action': toList(str),
+        'branch': toList(str),
         'ref': toList(str),
         'comment': toList(str),
         'label': toList(str),
