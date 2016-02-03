@@ -12,6 +12,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import collections
 import logging
 import hmac
 import hashlib
@@ -103,6 +104,7 @@ class GithubWebhookListener():
         pr_body = body.get('pull_request')
 
         event = self._pull_request_to_event(pr_body)
+        event.account = self._get_sender(body)
 
         if action == 'opened':
             event.type = 'pr-open'
@@ -134,6 +136,7 @@ class GithubWebhookListener():
             return
 
         event = self._pull_request_to_event(pr_body)
+        event.account = self._get_sender(body)
         event.comment = body.get('comment').get('body')
         event.type = 'pr-comment'
         return event
@@ -190,7 +193,42 @@ class GithubWebhookListener():
         event.refspec = "refs/pull/" + str(pr_body.get('number')) + "/head"
         event.patch_number = head.get('sha')
 
+        event.title = pr_body.get('title')
+
         return event
+
+    def _get_sender(self, body):
+        login = body.get('sender').get('login')
+        if login:
+            return self.connection.getUser(login)
+
+
+class GithubUser(collections.Mapping):
+
+    def __init__(self, github, username):
+        self._github = github
+        self._username = username
+        self._data = None
+
+    def __getitem__(self, key):
+        if self._data is None:
+            self._data = self._init_data()
+        return self._data[key]
+
+    def __iter__(self):
+        return iter(self._data)
+
+    def __len__(self):
+        return len(self._data)
+
+    def _init_data(self):
+        user = self._github.user(self._username)
+        data = {
+            'username': user.login,
+            'name': user.name,
+            'email': user.email
+        }
+        return data
 
 
 class GithubConnection(BaseConnection):
@@ -253,14 +291,21 @@ class GithubConnection(BaseConnection):
     def getPull(self, owner, project, number):
         return self.github.pull_request(owner, project, number).as_dict()
 
+    def getUser(self, login):
+        return GithubUser(self.github, login)
+
+    def getUserUri(self, login):
+        return 'https://%s/%s' % (self.git_host, login)
+
     def commentPull(self, owner, project, pr_number, message):
         pull_request = self.github.issue(owner, project, pr_number)
         pull_request.create_comment(message)
 
-    def mergePull(self, owner, project, pr_number, sha=None):
+    def mergePull(self, owner, project, pr_number, commit_message='',
+                  sha=None):
         pull_request = self.github.pull_request(owner, project, pr_number)
         try:
-            result = pull_request.merge(sha=sha)
+            result = pull_request.merge(commit_message=commit_message, sha=sha)
         except MethodNotAllowed as e:
             raise MergeFailure('Merge was not successful due to mergeability'
                                ' conflict, original error is %s' % e)

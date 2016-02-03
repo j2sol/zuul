@@ -58,12 +58,15 @@ class GithubSource(BaseSource):
             change.url = event.change_url
             change.updated_at = self._ghTimestampToDate(event.updated_at)
             change.patchset = event.patch_number
+            change.title = event.title
+            change.source_event = event
         elif event.ref:
             change = Ref(project)
             change.ref = event.ref
             change.oldrev = event.oldrev
             change.newrev = event.newrev
             change.url = self.getGitwebUrl(project, sha=event.newrev)
+            change.source_event = event
         else:
             change = NullChange(project)
         return change

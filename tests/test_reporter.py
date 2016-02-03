@@ -14,6 +14,10 @@
 
 import logging
 import testtools
+try:
+    from unittest import mock
+except ImportError:
+    import mock
 
 import zuul.reporter
 
@@ -51,10 +55,51 @@ class TestGithubReporter(testtools.TestCase):
 
     def setUp(self):
         super(TestGithubReporter, self).setUp()
-
-    def test_reporter_abc(self):
-        # We only need to instantiate a class for this
-        reporter = zuul.reporter.github.GithubReporter({})  # noqa
+        self.connection = mock.MagicMock()
+        self.connection.getUserUri = mock.MagicMock(
+            return_value='https://github.com/githubuser')
+        self.change = mock.MagicMock()
+        self.change.title = None
+        self.change.source_event.account = {
+            'username': 'githubuser',
+            'name': '',
+            'email': None
+        }
+        self.reporter = zuul.reporter.github.GithubReporter(
+            connection=self.connection)
 
     def test_reporter_name(self):
-        self.assertEqual('github', zuul.reporter.github.GithubReporter.name)
+        self.assertEqual('github', self.reporter.name)
+
+    def test_format_merge_message_name_email_username(self):
+        self.change.source_event.account['name'] = 'Github User'
+        self.change.source_event.account['email'] = 'github.user@example.com'
+
+        message = self.reporter._formatMergeMessage(self.change)
+        self.assertEqual('\n\n'
+                         'Reviewed-by: Github User <github.user@example.com>\n'
+                         '             https://github.com/githubuser',
+                         message)
+
+    def test_format_merge_message_name_username(self):
+        self.change.source_event.account['name'] = 'Github User'
+
+        message = self.reporter._formatMergeMessage(self.change)
+        self.assertEqual('\n\n'
+                         'Reviewed-by: Github User\n'
+                         '             https://github.com/githubuser',
+                         message)
+
+    def test_format_merge_message_email_username(self):
+        self.change.source_event.account['email'] = 'github.user@example.com'
+
+        message = self.reporter._formatMergeMessage(self.change)
+        self.assertEqual('\n\n'
+                         'Reviewed-by: <github.user@example.com>\n'
+                         '             https://github.com/githubuser',
+                         message)
+
+    def test_format_merge_message_username(self):
+        message = self.reporter._formatMergeMessage(self.change)
+        self.assertEqual('\n\n'
+                         'Reviewed-by: https://github.com/githubuser', message)
