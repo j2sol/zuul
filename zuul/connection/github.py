@@ -291,6 +291,10 @@ class GithubConnection(BaseConnection):
     def getPull(self, owner, project, number):
         return self.github.pull_request(owner, project, number).as_dict()
 
+    def getPullFileNames(self, owner, project, number):
+        return [f.filename for f in
+                self.github.pull_request(owner, project, number).files()]
+
     def getUser(self, login):
         return GithubUser(self.github, login)
 

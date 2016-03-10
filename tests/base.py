@@ -477,7 +477,7 @@ class GithubChangeReference(git.Reference):
 class FakeGithubPullRequest(object):
 
     def __init__(self, github, number, project, branch,
-                 subject, upstream_root, number_of_commits=1):
+                 subject, upstream_root, files=[], number_of_commits=1):
         """Creates a new PR with several commits.
         Sends an event about opened PR."""
         self.github = github
@@ -487,6 +487,7 @@ class FakeGithubPullRequest(object):
         self.subject = subject
         self.number_of_commits = 0
         self.upstream_root = upstream_root
+        self.files = []
         self.comments = []
         self.labels = []
         self.statuses = {}
@@ -495,18 +496,18 @@ class FakeGithubPullRequest(object):
         self.is_merged = False
         self.merge_message = None
         self._createPRRef()
-        self._addCommitToRepo()
+        self._addCommitToRepo(files=files)
         self._updateTimeStamp()
 
-    def addCommit(self):
+    def addCommit(self, files=[]):
         """Adds a commit on top of the actual PR head."""
-        self._addCommitToRepo()
+        self._addCommitToRepo(files=files)
         self._updateTimeStamp()
         self._clearStatuses()
 
-    def forcePush(self):
+    def forcePush(self, files=[]):
         """Clears actual commits and add a commit on top of the base."""
-        self._addCommitToRepo(reset=True)
+        self._addCommitToRepo(files=files, reset=True)
         self._updateTimeStamp()
         self._clearStatuses()
 
@@ -593,7 +594,7 @@ class FakeGithubPullRequest(object):
         GithubChangeReference.create(
             repo, self._getPRReference(), 'refs/tags/init')
 
-    def _addCommitToRepo(self, reset=False):
+    def _addCommitToRepo(self, files=[], reset=False):
         repo = self._getRepo()
         ref = repo.references[self._getPRReference()]
         if reset:
@@ -604,7 +605,12 @@ class FakeGithubPullRequest(object):
         zuul.merger.merger.reset_repo_to_head(repo)
         repo.git.clean('-x', '-f', '-d')
 
-        fn = '%s-%s' % (self.branch.replace('/', '_'), self.number)
+        if files:
+            fn = files[0]
+            self.files = files
+        else:
+            fn = '%s-%s' % (self.branch.replace('/', '_'), self.number)
+            self.files = [fn]
         msg = self.subject + '-' + str(self.number_of_commits)
         fn = os.path.join(repo.working_dir, fn)
         f = open(fn, 'w')
@@ -678,10 +684,11 @@ class FakeGithubConnection(zuul.connection.github.GithubConnection):
         self.merge_failure = False
         self.merge_not_allowed_count = 0
 
-    def openFakePullRequest(self, project, branch, subject):
+    def openFakePullRequest(self, project, branch, subject, files=[]):
         self.pr_number += 1
         pull_request = FakeGithubPullRequest(
-            self, self.pr_number, project, branch, subject, self.upstream_root)
+            self, self.pr_number, project, branch, subject, self.upstream_root,
+            files=files)
         self.pull_requests.append(pull_request)
         return pull_request
 
@@ -744,6 +751,10 @@ class FakeGithubConnection(zuul.connection.github.GithubConnection):
             }
         }
         return data
+
+    def getPullFileNames(self, owner, project, number):
+        pr = self.pull_requests[number - 1]
+        return pr.files
 
     def getUser(self, login):
         data = {

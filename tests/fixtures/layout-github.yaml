@@ -113,6 +113,9 @@ jobs:
   - name: ^.*-merge$
     failure-message: Unable to merge change
     hold-following-changes: true
+  - name: project-testfile
+    files:
+      - '.*-requires'
 
 projects:
   - name: org/project
@@ -138,3 +141,7 @@ projects:
   - name: org/one-job-project
     check:
       - one-job-project-merge
+
+  - name: org/project1
+    check:
+      - project-testfile

@@ -73,6 +73,21 @@ class TestGithub(ZuulTestCase):
 
         self.assertEqual(0, len(self.history))
 
+    def test_pull_matched_file_event(self):
+        A = self.fake_github.openFakePullRequest(
+            'org/project1', 'master', 'A',
+            files=['random.txt', 'build-requires'])
+        self.fake_github.emitEvent(A.getPullRequestOpenedEvent())
+        self.waitUntilSettled()
+        self.assertEqual(1, len(self.history))
+
+    def test_pull_unmatched_file_event(self):
+        A = self.fake_github.openFakePullRequest('org/project1', 'master', 'A',
+                                                 files=['random.txt'])
+        self.fake_github.emitEvent(A.getPullRequestOpenedEvent())
+        self.waitUntilSettled()
+        self.assertEqual(0, len(self.history))
+
     def test_comment_event(self):
         A = self.fake_github.openFakePullRequest('org/project', 'master', 'A')
         self.fake_github.emitEvent(A.getCommentAddedEvent('test me'))
