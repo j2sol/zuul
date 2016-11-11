@@ -15,7 +15,7 @@
 import logging
 import time
 
-from zuul.model import NullChange, PullRequest, Ref
+from zuul.model import PullRequest, Ref
 from zuul.source import BaseSource
 
 
@@ -61,15 +61,13 @@ class GithubSource(BaseSource):
             change.files = self.getPullFiles(project, change.number)
             change.title = event.title
             change.source_event = event
-        elif event.ref:
+        else:
             change = Ref(project)
             change.ref = event.ref
             change.oldrev = event.oldrev
             change.newrev = event.newrev
             change.url = self.getGitwebUrl(project, sha=event.newrev)
             change.source_event = event
-        else:
-            change = NullChange(project)
         return change
 
     def getProjectOpenChanges(self, project):

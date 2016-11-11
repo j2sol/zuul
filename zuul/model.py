@@ -896,6 +896,7 @@ class Changeish(object):
 
     def __init__(self, project):
         self.project = project
+        self.connection_name = None
 
     def __str__(self):
         return str(self._id())
@@ -1052,6 +1053,7 @@ class TriggerEvent(object):
         self.data = None
         # common
         self.type = None
+        self.connection_name = None
         self.project_name = None
         self.trigger_name = None
         # Representation of the user account that performed the event.

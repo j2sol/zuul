@@ -91,3 +91,33 @@ class TestMultipleGerrits(ZuulTestCase):
         self.worker.hold_jobs_in_build = False
         self.worker.release()
         self.waitUntilSettled()
+
+
+class TestGerritAndGithub(ZuulTestCase):
+    def setup_config(self,
+                     config_file='zuul-connections-gerrit-and-github.conf'):
+        super(TestGerritAndGithub, self).setup_config(config_file)
+        self.config.set(
+            'zuul', 'layout_config',
+            'layout-connections-gerrit-and-github.yaml')
+
+    def test_multiple_project_gerrit_and_github(self):
+        self.worker.hold_jobs_in_build = True
+
+        A = self.fake_gerrit.addFakeChange('org/project', 'master', 'A')
+        self.fake_gerrit.addEvent(A.getPatchsetCreatedEvent(1))
+
+        B = self.fake_github.openFakePullRequest('org/project1', 'master', 'B')
+        self.fake_github.emitEvent(B.getPullRequestOpenedEvent())
+
+        self.waitUntilSettled()
+
+        self.assertEqual(2, len(self.builds))
+        self.assertEqual('project-gerrit', self.builds[0].name)
+        self.assertEqual('project1-github', self.builds[1].name)
+        self.assertTrue(self.job_has_changes(self.builds[0], A))
+        self.assertTrue(self.job_has_changes(self.builds[1], B))
+
+        self.worker.hold_jobs_in_build = False
+        self.worker.release()
+        self.waitUntilSettled()

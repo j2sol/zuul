@@ -16,7 +16,7 @@ import logging
 import re
 import time
 from zuul import exceptions
-from zuul.model import Change, Ref, NullChange
+from zuul.model import Change, Ref
 from zuul.source import BaseSource
 
 
@@ -148,14 +148,13 @@ class GerritSource(BaseSource):
             refresh = False
             change = self._getChange(event.change_number, event.patch_number,
                                      refresh=refresh)
-        elif event.ref:
+        else:
             change = Ref(project)
+            change.connection_name = self.connection.connection_name
             change.ref = event.ref
             change.oldrev = event.oldrev
             change.newrev = event.newrev
             change.url = self._getGitwebUrl(project, sha=event.newrev)
-        else:
-            change = NullChange(project)
         return change
 
     def _getChange(self, number, patchset, refresh=False, history=None):
@@ -165,6 +164,7 @@ class GerritSource(BaseSource):
             return change
         if not change:
             change = Change(None)
+            change.connection_name = self.connection.connection_name
             change.number = number
             change.patchset = patchset
         key = '%s,%s' % (change.number, change.patchset)

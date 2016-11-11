@@ -82,6 +82,7 @@ class ZuulTrigger(BaseTrigger):
     def _createProjectChangeMergedEvent(self, change):
         event = TriggerEvent()
         event.type = 'project-change-merged'
+        event.connection_name = change.connection_name
         event.trigger_name = self.name
         event.project_name = change.project.name
         event.change_number = change.number
@@ -102,6 +103,7 @@ class ZuulTrigger(BaseTrigger):
     def _createParentChangeEnqueuedEvent(self, change, pipeline):
         event = TriggerEvent()
         event.type = 'parent-change-enqueued'
+        event.connection_name = change.connection_name
         event.trigger_name = self.name
         event.pipeline_name = pipeline.name
         event.project_name = change.project.name
