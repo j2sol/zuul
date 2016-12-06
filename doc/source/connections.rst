@@ -77,6 +77,11 @@ Create a connection with GitHub.
   Path to SSH key to use when cloning github repositories.
   ``sshkey=/home/zuul/.ssh/id_rsa``
 
+**git_host**
+  Optional: Hostname of the github install (such as a GitHub Enterprise)
+  If not specified, defaults to ``github.com``
+  ``git_host=github.myenterprise.com``
+
 SMTP
 ----
 
