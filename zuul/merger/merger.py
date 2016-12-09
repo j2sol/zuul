@@ -186,6 +186,9 @@ class Repo(object):
         repo = self.createRepoObject()
         self.log.debug("Updating repository %s" % self.local_path)
         origin = repo.remotes.origin
+        # reset the origin url in case it has updated in config
+        # since we last touched it
+        origin.set_url(self.remote_url)
         if repo.git.version_info[:2] < (1, 9):
             # Before 1.9, 'git fetch --tags' did not include the
             # behavior covered by 'git --fetch', so we run both

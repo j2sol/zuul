@@ -13,10 +13,14 @@
 # under the License.
 
 import collections
+import datetime
 import logging
 import hmac
 import hashlib
 
+import iso8601
+import jwt
+import requests
 import webob
 import webob.dec
 import voluptuous as v
@@ -26,6 +30,25 @@ from github3.exceptions import MethodNotAllowed
 from zuul.connection import BaseConnection
 from zuul.exceptions import MergeFailure
 from zuul.model import GithubTriggerEvent
+
+ACCESS_TOKEN_URL = 'https://api.github.com/installations/%s/access_tokens'
+PREVIEW_JSON_ACCEPT = 'application/vnd.github.machine-man-preview+json'
+
+
+class UTC(datetime.tzinfo):
+    """UTC"""
+
+    def utcoffset(self, dt):
+        return datetime.timedelta(0)
+
+    def tzname(self, dt):
+        return "UTC"
+
+    def dst(self, dt):
+        return datetime.timedelta(0)
+
+
+utc = UTC()
 
 
 class GithubWebhookListener():
@@ -239,18 +262,23 @@ class GithubConnection(BaseConnection):
     driver_name = 'github'
     log = logging.getLogger("zuul.GithubConnection")
     payload_path = 'payload'
-    git_user = 'git'
 
     def __init__(self, connection_name, connection_config):
         super(GithubConnection, self).__init__(
             connection_name, connection_config)
-        self.github = None
         self._change_cache = {}
-        self._git_ssh = bool(self.connection_config.get('sshkey', None))
+
+        self.git_ssh_key = self.connection_config.get('sshkey')
         self.git_host = self.connection_config.get('git_host', 'github.com')
 
-    def onLoad(self):
+        self._github = None
+        self.integration_id = None
+        self.integration_key = None
+        self.installation_id = None
+        self.installation_token = None
+        self.installation_expiry = None
 
+    def onLoad(self):
         webhook_listener = GithubWebhookListener(self)
         self.registerHttpHandler(self.payload_path,
                                  webhook_listener.handle_request)
@@ -260,19 +288,82 @@ class GithubConnection(BaseConnection):
         self.unregisterHttpHandler(self.payload_path)
 
     def _authenticateGithubAPI(self):
-        token = self.connection_config.get('api_token', None)
-        if token is not None:
-            if self.git_host != 'github.com':
-                url = 'https://%s/' % self.git_host
-                self.github = github3.enterprise_login(token=token, url=url)
-            else:
-                self.github = github3.login(token=token)
-            self.log.info("Github API Authentication successful.")
+        config = self.connection_config
+
+        if self.git_host != 'github.com':
+            url = 'https://%s/' % self.git_host
+            github = github3.GitHubEnterprise(url)
         else:
-            self.github = None
-            self.log.info(
-                "No Github credentials found in zuul configuration, cannot "
-                "authenticate.")
+            github = github3.GitHub()
+
+        api_token = config.get('api_token')
+
+        if api_token:
+            github.login(token=api_token)
+        else:
+            integration_id = config.get('integration_id')
+            installation_id = config.get('installation_id')
+            integration_key_file = config.get('integration_key')
+
+            if integration_key_file:
+                with open(integration_key_file, 'r') as f:
+                    integration_key = f.read()
+
+            if not (integration_id and integration_key and installation_id):
+                self.log.warning("You must provide an integration_id, "
+                                 "integration_key and installation_id to use "
+                                 "installation based authentication")
+
+                return
+
+            self.integration_id = int(integration_id)
+            self.installation_id = int(installation_id)
+            self.integration_key = integration_key
+
+        self._github = github
+
+    def _get_installation_key(self, user_id=None):
+        if not (self.installation_id and self.integration_id):
+            return None
+
+        now = datetime.datetime.now(utc)
+
+        if ((not self.installation_expiry) or
+                (not self.installation_token) or
+                (now < self.installation_expiry)):
+            expiry = now + datetime.timedelta(minutes=5)
+
+            data = {'iat': now, 'exp': expiry, 'iss': self.integration_id}
+            integration_token = jwt.encode(data,
+                                           self.integration_key,
+                                           algorithm='RS256')
+
+            url = ACCESS_TOKEN_URL % self.installation_id
+            headers = {'Accept': PREVIEW_JSON_ACCEPT,
+                       'Authorization': 'Bearer %s' % integration_token}
+            json_data = {'user_id': user_id} if user_id else None
+
+            response = requests.post(url, headers=headers, json=json_data)
+            response.raise_for_status()
+
+            data = response.json()
+
+            self.installation_expiry = iso8601.parse_date(data['expires_at'])
+            self.installation_expiry -= datetime.timedelta(minutes=5)
+            self.installation_token = data['token']
+
+        return self.installation_token
+
+    @property
+    def github(self):
+        # if we're using api_key authentication then we don't need to fetch
+        # new installation tokens so return the existing one.
+        installation_key = self._get_installation_key()
+
+        if installation_key:
+            self._github.login(token=installation_key)
+
+        return self._github
 
     def maintainCache(self, relevant):
         for key, change in self._change_cache.items():
@@ -280,12 +371,16 @@ class GithubConnection(BaseConnection):
                 del self._change_cache[key]
 
     def getGitUrl(self, project):
-        if self._git_ssh:
-            url = 'ssh://%s@%s/%s.git' % \
-                (self.git_user, self.git_host, project)
-        else:
-            url = 'https://%s/%s' % (self.git_host, project)
-        return url
+        if self.git_ssh_key:
+            return 'ssh://git@%s/%s.git' % (self.git_host, project)
+
+        installation_key = self._get_installation_key()
+        if installation_key:
+            return 'https://x-access-token:%s@%s/%s' % (installation_key,
+                                                        self.git_host,
+                                                        project)
+
+        return 'https://%s/%s' % (self.git_host, project)
 
     def getGitwebUrl(self, project, sha=None):
         url = 'https://%s/%s' % (self.git_host, project)
