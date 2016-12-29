@@ -17,12 +17,14 @@ pipelines:
         status: true
     success:
       github:
-        status: true
         comment: true
+        status: true
+        status_url: http://logs.example.com/{change.project.name}/{change.number}/{change.patchset}
     failure:
       github:
-        status: true
         comment: true
+        status: true
+        status_url: http://logs.example.com/{change.project.name}/{change.number}/{change.patchset}
 
   - name: gate
     description: Gatekeeping
@@ -64,6 +66,7 @@ pipelines:
     failure:
       github:
         comment: false
+
 
   - name: merge
     description: Pipeline for merging the pull request

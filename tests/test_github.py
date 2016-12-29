@@ -251,8 +251,10 @@ class TestGithub(ZuulTestCase):
         check_status = A.statuses['check']
         self.assertEqual('Standard check', check_status['description'])
         self.assertEqual('success', check_status['state'])
-        self.assertEqual('', check_status['url'])
+        log_url = ('http://logs.example.com/org/project/1/%s' % A.head_sha)
+        self.assertEqual(log_url, check_status['url'])
 
+        # trigger reporting pipeline
         # pipeline does not report any status
         self.worker.hold_jobs_in_build = True
         self.fake_github.emitEvent(

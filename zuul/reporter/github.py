@@ -31,6 +31,7 @@ class GithubReporter(BaseReporter):
             reporter_config, sched, connection)
         self._github_status_value = None
         self._set_commit_status = self.reporter_config.get('status', False)
+        self._status_url = self.reporter_config.get('status_url', '')
         self._create_comment = self.reporter_config.get('comment', False)
         self._merge = self.reporter_config.get('merge', False)
         self._labels = self.reporter_config.get('label', [])
@@ -74,12 +75,17 @@ class GithubReporter(BaseReporter):
         sha = item.change.patchset
         context = pipeline.name
         state = self._github_status_value
+
         url = ''
-        if self._action == 'start':
-            if self.sched.config.has_option('zuul', 'status_url'):
-                url = self.sched.config.get('zuul', 'status_url')
+        if self._status_url:
+            # Check for a status_url in the reporter (from layout.yaml)
+            url = item.formatUrlPattern(self._status_url)
+        elif self.sched.config.has_option('zuul', 'status_url'):
+            # Fall back to the zuul server status_url (from zuul.conf)
+            url = self.sched.config.get('zuul', 'status_url')
             if self.sched.config.has_option('zuul', 'status_url_with_change'):
                 url = '%s/#%s' % (url, item.change)
+
         description = ''
         if pipeline.description:
             description = pipeline.description
@@ -156,6 +162,7 @@ def getSchema():
         'status': bool,
         'comment': bool,
         'merge': bool,
-        'label': toList(str)
+        'label': toList(str),
+        'status_url': toList(str)
     })
     return github_reporter
