@@ -69,6 +69,11 @@ class GithubReporter(BaseReporter):
         url = ''
         if self.connection.sched.config.has_option('zuul', 'status_url'):
             url = self.connection.sched.config.get('zuul', 'status_url')
+        if self.connection.sched.config.has_option('zuul',
+                                                   'status_url_with_change'):
+            url = '%s/#%s,%s' % (url,
+                                 item.change.number,
+                                 item.change.patchset)
         description = ''
         if pipeline.description:
             description = pipeline.description
