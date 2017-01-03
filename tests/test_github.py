@@ -234,9 +234,11 @@ class TestGithub(ZuulTestCase):
         self.waitUntilSettled()
         self.assertIn('check', A.statuses)
         check_status = A.statuses['check']
+        check_url = ('http://zuul.example.com/status/#%s,%s' %
+                     (A.number, A.head_sha))
         self.assertEqual('Standard check', check_status['description'])
         self.assertEqual('pending', check_status['state'])
-        self.assertEqual('http://zuul.example.com/status', check_status['url'])
+        self.assertEqual(check_url, check_status['url'])
 
         self.worker.hold_jobs_in_build = False
         self.worker.release()

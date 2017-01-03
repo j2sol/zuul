@@ -75,9 +75,11 @@ class GithubReporter(BaseReporter):
         context = pipeline.name
         state = self._github_status_value
         url = ''
-        if (self._action == 'start' and
-            self.sched.config.has_option('zuul', 'status_url')):
-            url = self.sched.config.get('zuul', 'status_url')
+        if self._action == 'start':
+            if self.sched.config.has_option('zuul', 'status_url'):
+                url = self.sched.config.get('zuul', 'status_url')
+            if self.sched.config.has_option('zuul', 'status_url_with_change'):
+                url = '%s/#%s' % (url, item.change)
         description = ''
         if pipeline.description:
             description = pipeline.description
