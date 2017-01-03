@@ -24,15 +24,66 @@ class GithubReporter(BaseReporter):
     name = 'github'
     log = logging.getLogger("zuul.GithubReporter")
 
-    def report(self, source, pipeline, item):
-        """Comment on PR with test status."""
-        message = self._formatItemReport(pipeline, item)
-        owner, project = item.change.project.name.split("/")
-        pr_number = item.change.number
+    def __init__(self, reporter_config={}, sched=None, connection=None):
+        super(GithubReporter, self).__init__(
+            reporter_config, sched, connection)
+        self._github_status_value = None
+        self._set_commit_status = self.reporter_config.get('status', False)
+        self._create_comment = self.reporter_config.get('comment', False)
 
-        self.connection.report(owner, project, pr_number, message)
+    def postConfig(self):
+        github_status_values = {
+            'start': 'pending',
+            'success': 'success',
+            'failure': 'failure',
+            'merge-failure': 'failure'
+        }
+        self._github_status_value = github_status_values[self._action]
+
+    def report(self, source, pipeline, item):
+        """Comment on PR and set commit status."""
+        if self._create_comment:
+            self.addPullComment(pipeline, item)
+        if (self._set_commit_status and
+            hasattr(item.change, 'patchset') and
+            item.change.patchset is not None):
+            self.setPullStatus(pipeline, item)
+
+    def addPullComment(self, pipeline, item):
+        message = self._formatItemReport(pipeline, item)
+        owner, project = item.change.project.name.split('/')
+        pr_number = item.change.number
+        self.log.debug(
+            'Reporting change %s, params %s, message: %s' %
+            (item.change, self.reporter_config, message))
+        self.connection.commentPull(owner, project, pr_number, message)
+
+    def setPullStatus(self, pipeline, item):
+        owner, project = item.change.project.name.split('/')
+        sha = item.change.patchset
+        context = pipeline.name
+        state = self._github_status_value
+        url = ''
+        if (self._action == 'start' and
+            self.sched.config.has_option('zuul', 'status_url')):
+            url = self.sched.config.get('zuul', 'status_url')
+        description = ''
+        if pipeline.description:
+            description = pipeline.description
+
+        self.log.debug(
+            'Reporting change %s, params %s, status:\n'
+            'context: %s, state: %s, description: %s, url: %s' %
+            (item.change, self.reporter_config, context, state,
+             description, url))
+
+        self.connection.setCommitStatus(
+            owner, project, sha, state, url, description, context)
 
 
 def getSchema():
-    github_reporter = v.Any(str, v.Schema({}, extra=True))
+    github_reporter = v.Schema({
+        'status': bool,
+        'comment': bool
+    })
     return github_reporter

@@ -240,10 +240,15 @@ class GithubConnection(BaseConnection):
     def getPull(self, owner, project, number):
         return self.github.pull_request(owner, project, number).to_json()
 
-    def report(self, owner, project, pr_number, message):
+    def commentPull(self, owner, project, pr_number, message):
         repository = self.github.repository(owner, project)
         pull_request = repository.issue(pr_number)
         pull_request.create_comment(message)
+
+    def setCommitStatus(self, owner, project, sha, state,
+                        url='', description='', context=''):
+        repository = self.github.repository(owner, project)
+        repository.create_status(sha, state, url, description, context)
 
 
 def getSchema():

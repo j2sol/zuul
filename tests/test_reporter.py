@@ -54,7 +54,7 @@ class TestGithubReporter(testtools.TestCase):
 
     def test_reporter_abc(self):
         # We only need to instantiate a class for this
-        reporter = zuul.reporter.github.GithubReporter(None)  # noqa
+        reporter = zuul.reporter.github.GithubReporter({})  # noqa
 
     def test_reporter_name(self):
         self.assertEqual('github', zuul.reporter.github.GithubReporter.name)

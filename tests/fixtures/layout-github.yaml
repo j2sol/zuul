@@ -1,5 +1,6 @@
 pipelines:
   - name: check
+    description: Standard check
     manager: IndependentPipelineManager
     source: github
     trigger:
@@ -10,10 +11,35 @@ pipelines:
             - pr-reopen
         - event: pr-comment
           comment: 'test me'
+    start:
+      github:
+        status: true
     success:
-      github: 'TEST PASSES'
+      github:
+        status: true
+        comment: true
     failure:
-      github: 'TEST FAILED'
+      github:
+        status: true
+        comment: true
+
+  - name: reporting
+    description: Uncommon reporting
+    manager: IndependentPipelineManager
+    source: github
+    trigger:
+      github:
+        - event: pr-comment
+          comment: 'reporting check'
+    start:
+      github:
+        comment: true
+    success:
+      github:
+        comment: false
+    failure:
+      github:
+        comment: false
 
   - name: post
     manager: IndependentPipelineManager
@@ -39,3 +65,5 @@ projects:
       - project-post
     tag:
       - project-tag
+    reporting:
+      - project-test1

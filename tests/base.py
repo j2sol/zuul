@@ -485,6 +485,7 @@ class FakeGithubPullRequest(object):
         self.branch = branch
         self.upstream_root = upstream_root
         self.comments = []
+        self.statuses = {}
         self.updated_at = None
         self.head_sha = None
         self._createPRRef()
@@ -495,11 +496,13 @@ class FakeGithubPullRequest(object):
         """Adds a commit on top of the actual PR head."""
         self._addCommitToRepo()
         self._updateTimeStamp()
+        self._clearStatuses()
 
     def forcePush(self):
         """Clears actual commits and add a commit on top of the base."""
         self._addCommitToRepo(reset=True)
         self._updateTimeStamp()
+        self._clearStatuses()
 
     def getPullRequestOpenedEvent(self):
         return self._getPullRequestEvent('opened')
@@ -572,6 +575,16 @@ class FakeGithubPullRequest(object):
     def getPRHeadSha(self):
         repo = self._getRepo()
         return repo.references[self._getPRReference()].commit.hexsha
+
+    def setStatus(self, state, url, description, context):
+        self.statuses[context] = {
+            'state': state,
+            'url': url,
+            'description': description
+        }
+
+    def _clearStatuses(self):
+        self.statuses = {}
 
     def _getPRReference(self):
         return '%s/head' % self.number
@@ -681,9 +694,17 @@ class FakeGithubConnection(zuul.connection.github.GithubConnection):
     def real_getGitUrl(self, project):
         return super(FakeGithubConnection, self).getGitUrl(project)
 
-    def report(self, owner, project, pr_number, message, params=None):
+    def commentPull(self, owner, project, pr_number, message):
         pull_request = self.pull_requests[pr_number - 1]
         pull_request.addComment(message)
+
+    def setCommitStatus(self, owner, project, sha, state,
+                        url='', description='', context=''):
+        for pr in self.pull_requests:
+            pr_owner, pr_project = pr.project.split('/')
+            if (pr_owner == owner and pr_project == project and
+                pr.head_sha == sha):
+                pr.setStatus(state, url, description, context)
 
 
 class BuildHistory(object):
