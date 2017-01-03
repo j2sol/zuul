@@ -1,0 +1,44 @@
+- pipeline:
+    name: check
+    description: Standard check
+    manager: independent
+    trigger:
+      github:
+        - event:
+            - pr-open
+    start:
+      github:
+        status: true
+        comment: false
+    success:
+      github:
+        status: true
+
+- pipeline:
+    name: reporting
+    description: Uncommon reporting
+    manager: independent
+    trigger:
+      github:
+        - event: pr-comment
+          comment: 'reporting check'
+    start:
+      github: {}
+    success:
+      github:
+        comment: false
+    failure:
+      github:
+        comment: false
+
+- job:
+    name: project-test1
+
+- project:
+    name: org/project
+    check:
+      jobs:
+        - project-test1
+    reporting:
+      jobs:
+        - project-test1
