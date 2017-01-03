@@ -13,6 +13,8 @@
 # under the License.
 
 import logging
+import re
+from testtools.matchers import MatchesRegex
 
 from tests.base import ZuulTestCase, random_sha1
 
@@ -119,3 +121,62 @@ class TestGithubDriver(ZuulTestCase):
         """Test that git_ssh option gives git url with ssh"""
         url = self.fake_github_ssh.real_getGitUrl('org/project')
         self.assertEqual('ssh://git@github.com/org/project.git', url)
+
+    def test_report_pull_status(self):
+        # pipeline reports pull status both on start and success
+        self.launch_server.hold_jobs_in_build = True
+        pr = self.fake_github.openFakePullRequest('org/project', 'master')
+        self.fake_github.emitEvent(pr.getPullRequestOpenedEvent())
+        self.waitUntilSettled()
+        self.assertIn('check', pr.statuses)
+        check_status = pr.statuses['check']
+        self.assertEqual('Standard check', check_status['description'])
+        self.assertEqual('pending', check_status['state'])
+        self.assertEqual('http://zuul.example.com/status', check_status['url'])
+
+        self.launch_server.hold_jobs_in_build = False
+        self.launch_server.release()
+        self.waitUntilSettled()
+        check_status = pr.statuses['check']
+        self.assertEqual('Standard check', check_status['description'])
+        self.assertEqual('success', check_status['state'])
+        self.assertEqual('', check_status['url'])
+
+        # pipeline does not report any status
+        self.launch_server.hold_jobs_in_build = True
+        self.fake_github.emitEvent(
+            pr.getCommentAddedEvent('reporting check'))
+        self.waitUntilSettled()
+        self.assertNotIn('reporting', pr.statuses)
+        self.launch_server.hold_jobs_in_build = False
+        self.launch_server.release()
+        self.waitUntilSettled()
+        self.assertNotIn('reporting', pr.statuses)
+
+    def test_report_pull_comment(self):
+        # pipeline reports comment on success
+        self.launch_server.hold_jobs_in_build = True
+        pr = self.fake_github.openFakePullRequest('org/project', 'master')
+        self.fake_github.emitEvent(pr.getPullRequestOpenedEvent())
+        self.waitUntilSettled()
+        self.assertEqual(0, len(pr.comments))
+
+        self.launch_server.hold_jobs_in_build = False
+        self.launch_server.release()
+        self.waitUntilSettled()
+        self.assertEqual(1, len(pr.comments))
+        self.assertThat(pr.comments[0],
+                        MatchesRegex('.*Build succeeded.*', re.DOTALL))
+
+        # pipeline reports comment on start
+        self.launch_server.hold_jobs_in_build = True
+        self.fake_github.emitEvent(
+            pr.getCommentAddedEvent('reporting check'))
+        self.waitUntilSettled()
+        self.assertEqual(2, len(pr.comments))
+        self.assertThat(pr.comments[1],
+                        MatchesRegex('.*Starting reporting jobs.*', re.DOTALL))
+        self.launch_server.hold_jobs_in_build = False
+        self.launch_server.release()
+        self.waitUntilSettled()
+        self.assertEqual(2, len(pr.comments))

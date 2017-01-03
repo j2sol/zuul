@@ -1,5 +1,6 @@
 - pipeline:
     name: check
+    description: Standard check
     manager: independent
     source:
       github
@@ -11,10 +12,37 @@
             - pr-reopen
         - event: pr-comment
           comment: 'test me'
+    start:
+      github:
+        status: true
     success:
-      github: 'TEST PASSES'
+      github:
+        status: true
+        comment: true
     failure:
-      github: 'TEST FAILED'
+      github:
+        status: true
+        comment: true
+
+- pipeline:
+    name: reporting
+    description: Uncommon reporting
+    manager: independent
+    source:
+      github
+    trigger:
+      github:
+        - event: pr-comment
+          comment: 'reporting check'
+    start:
+      github:
+        comment: true
+    success:
+      github:
+        comment: false
+    failure:
+      github:
+        comment: false
 
 - pipeline:
     name: post
@@ -55,3 +83,6 @@
     tag:
       jobs:
         - project-tag
+    reporting:
+      jobs:
+        - project-test1
