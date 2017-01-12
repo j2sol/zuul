@@ -177,6 +177,20 @@ class TestGithub(ZuulTestCase):
         self.assertEqual(0, len(self.history))
         self.assertEqual(['other label'], A.labels)
 
+    def test_review_event(self):
+        A = self.fake_github.openFakePullRequest('org/project', 'master', 'A')
+        self.fake_github.emitEvent(A.getReviewAddedEvent('approve'))
+        self.waitUntilSettled()
+        self.assertEqual(1, len(self.history))
+        self.assertEqual('project-reviews', self.history[0].name)
+        self.assertEqual(['tests passed'], A.labels)
+
+    def test_review_unmatched_event(self):
+        A = self.fake_github.openFakePullRequest('org/project', 'master', 'A')
+        self.fake_github.emitEvent(A.getReviewAddedEvent('comment'))
+        self.waitUntilSettled()
+        self.assertEqual(0, len(self.history))
+
     def test_dequeue_pull_synchronized(self):
         self.worker.hold_jobs_in_build = True
 

@@ -124,6 +124,8 @@ following options.
 
     *pr-label* - label added or removed on pull request
 
+    *pr-review* - review added on pull request
+
     *push* - head reference updated (pushed to branch)
 
     *tag* - new tag created
@@ -155,6 +157,11 @@ following options.
   match when pull request is labeled with a ``recheck`` label. ``label: '-do
   not test'`` will match when a label with name ``do not test`` is removed from
   the pull request.
+
+  **state**
+  This is only used for ``pr-review`` events.  It accepts a list of strings
+  each of which is matched to the review state, which can be one of
+  ``approved``, ``comment``, or ``request_changes``.
 
 
 GitHub Configuration

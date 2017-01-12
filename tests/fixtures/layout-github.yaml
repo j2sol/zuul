@@ -112,6 +112,21 @@ pipelines:
       github:
         - event: tag
 
+  - name: reviews
+    description: Trigger on review
+    manager: IndependentPipelineManager
+    source: github
+    trigger:
+      github:
+        - event: pr-review
+          state: 'approve'
+
+    success:
+      github:
+        label:
+          - 'tests passed'
+          - '-test'
+
 jobs:
   - name: ^.*-merge$
     failure-message: Unable to merge change
@@ -140,6 +155,8 @@ projects:
       - project-test1
     labels:
       - project-labels
+    reviews:
+      - project-reviews
 
   - name: org/one-job-project
     check:
