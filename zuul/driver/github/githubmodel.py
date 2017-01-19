@@ -58,7 +58,7 @@ class GithubTriggerEvent(TriggerEvent):
 class GithubEventFilter(EventFilter):
     def __init__(self, trigger, types=[], branches=[], refs=[],
                  comments=[], actions=[], labels=[], unlabels=[],
-                 states=[], ignore_deletes=True):
+                 states=[], statuses=[], ignore_deletes=True):
 
         EventFilter.__init__(self, trigger)
 
@@ -74,6 +74,7 @@ class GithubEventFilter(EventFilter):
         self.labels = labels
         self.unlabels = unlabels
         self.states = states
+        self.statuses = statuses
         self.ignore_deletes = ignore_deletes
 
     def __repr__(self):
@@ -97,6 +98,8 @@ class GithubEventFilter(EventFilter):
             ret += ' unlabels: %s' % ', '.join(self.unlabels)
         if self.states:
             ret += ' states: %s' % ', '.join(self.states)
+        if self.statuses:
+            ret += ' statuses: %s' % ', '.join(self.statuses)
         ret += '>'
 
         return ret
@@ -159,5 +162,13 @@ class GithubEventFilter(EventFilter):
         # states are ORed
         if self.states and event.state not in self.states:
             return False
+
+        # statuses are ORed
+        # A PR head can have multiple statuses on it. If the change
+        # statuses and the filter statuses are a null intersection, there
+        # are no matches and we return false
+        if self.statuses:
+            if set(change.status).isdisjoint(set(self.statuses)):
+                return False
 
         return True
