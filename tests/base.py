@@ -490,7 +490,7 @@ class FakeGithubPullRequest(object):
         self.files = []
         self.comments = []
         self.labels = []
-        self.statuses = {}
+        self.statuses = []
         self.updated_at = None
         self.head_sha = None
         self.is_merged = False
@@ -662,15 +662,11 @@ class FakeGithubPullRequest(object):
         repo = self._getRepo()
         return repo.references[self._getPRReference()].commit.hexsha
 
-    def setStatus(self, state, url, description, context):
-        self.statuses[context] = {
-            'state': state,
-            'url': url,
-            'description': description
-        }
+    def setStatus(self, context, state):
+        self.statuses.append('%s:%s' % (context, state))
 
     def _clearStatuses(self):
-        self.statuses = {}
+        self.statuses = []
 
     def _getPRReference(self):
         return '%s/head' % self.number

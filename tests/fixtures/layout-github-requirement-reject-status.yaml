@@ -1,0 +1,34 @@
+pipelines:
+  - name: pipeline
+    manager: IndependentPipelineManager
+    reject:
+      status: "zuul/check:error"
+    trigger:
+      github:
+        - event: pr-comment
+          comment: 'test me'
+    success:
+      github:
+        comment: true
+
+#  - name: trigger
+#    manager: IndependentPipelineManager
+#    trigger:
+#      github:
+#        - event: pr-comment
+#          comment: 'test me'
+#          reject-status: "zuul/check:error"
+#    success:
+#      github:
+#        comment: true
+#    failure:
+#      github:
+#        status: true
+
+projects:
+  - name: org/project1
+    pipeline:
+      - project1-pipeline
+#  - name: org/project2
+#    trigger:
+#      - project2-trigger

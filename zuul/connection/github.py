@@ -240,6 +240,13 @@ class GithubWebhookListener():
 
         event.title = pr_body.get('title')
 
+        # get the statuses
+        head_project_name = head.get('repo').get('full_name')
+        head_owner, head_project = project_name.split('/')
+        event.statuses = self.connection.getCommitStatuses(head_owner,
+                                                           head_project,
+                                                           head)
+
         return event
 
     def _get_sender(self, body):
@@ -444,6 +451,23 @@ class GithubConnection(BaseConnection):
         log_rate_limit(self.log, self.github)
         if not result:
             raise Exception('Pull request was not merged')
+
+    def getCommitStatuses(self, owner, project, sha):
+        # A ref can have more than one status from each context,
+        # however the API returns them in order, newest first.
+        # So we can keep track of which contexts we've already seen
+        # and throw out the rest.
+        repository = self.github.repository(owner, project)
+        commit = repository.commit(sha)
+        seen = []
+        statuses = []
+        for status in commit.statuses():
+            if status.context not in seen:
+                statues.append("%s:%s" % (status.context, status.state))
+                seen.append(status.context)
+
+        log_rate_limit(self.log, self.github)
+        return statuses
 
     def setCommitStatus(self, owner, project, sha, state,
                         url='', description='', context=''):

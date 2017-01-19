@@ -1430,8 +1430,19 @@ class ChangeishFilter(BaseFilter):
                 return False
 
         if self.statuses:
-            if change.status not in self.statuses:
-                return False
+            # handle a change where status is list of statuses rather
+            # than a single string
+            if change.status and isinstance(change.status, str):
+                if change.status not in self.statuses:
+                    return False
+            elif isinstance(change.status, list):
+                # this is likely from github, where the head of the
+                # pr can have multiple statues on it.
+                # If the change statuses and the filter statuses are
+                # a null intersection, there are no matches and we return
+                # false.
+                if not set(change.status).isdisjoint(set(self.statuses):
+                    return false
 
         # required approvals are ANDed (reject approvals are ORed)
         if not self.matchesApprovals(change):
