@@ -40,7 +40,8 @@ class GithubTrigger(BaseTrigger):
                 refs=toList(trigger.get('ref')),
                 comments=toList(trigger.get('comment')),
                 labels=toList(trigger.get('label')),
-                states=toList(trigger.get('state'))
+                states=toList(trigger.get('state')),
+                statuses=toList(trigger.get('status'))
             )
             efilters.append(f)
 
@@ -64,6 +65,7 @@ def getSchema():
         'comment': toList(str),
         'label': toList(str),
         'state': toList(str),
+        'status': toList(str)
     }
 
     return github_trigger

@@ -128,6 +128,8 @@ following options.
 
     *push* - head reference updated (pushed to branch)
 
+    *status* - status set on commit
+
   **branch**
   The branch associated with the event. Example: ``master``.  This
   field is treated as a regular expression, and multiple branches may
@@ -152,6 +154,12 @@ following options.
   This is only used for ``review`` actions.  It accepts a list of strings
   each of which is matched to the review state, which can be one of
   ``approved``, ``comment``, or ``request_changes``.
+
+  **status**
+  This is only used for ``status`` actions. It accepts a list of strings each of
+  which matches the user setting the status, the status context, and the status
+  itself in the format of ``user:context:status``.  For example,
+  ``zuul_github_ci_bot:check_pipeline:success``.
 
   Additionally a ``push`` event can be configured, with an ``ref`` field. This
   field is treated as a regular expression and multiple refs may be listed.
