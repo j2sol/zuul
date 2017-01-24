@@ -49,3 +49,28 @@ class TestGithubRequirements(ZuulTestCase):
         self.waitUntilSettled()
         self.assertEqual(len(self.history), 1)
         self.assertEqual(self.history[0].name, 'project1-pipeline')
+
+    @simple_layout('layouts/requirements-github.yaml', driver='github')
+    def test_trigger_require_status(self):
+        "Test trigger requirement: status"
+        A = self.fake_github.openFakePullRequest('org/project2', 'master', 'A')
+
+        # An error status should not cause it to be enqueued
+        A.setStatus(A.head_sha, 'error', 'null', 'null', 'check')
+        self.fake_github.emitEvent(A.getCommitStatusEvent('error'))
+        self.waitUntilSettled()
+        self.assertEqual(len(self.history), 0)
+
+        # An success status from unknown user should not cause it to be
+        # enqueued
+        A.setStatus(A.head_sha, 'error', 'null', 'null', 'check', user='foo')
+        self.fake_github.emitEvent(A.getCommitStatusEvent('error'))
+        self.waitUntilSettled()
+        self.assertEqual(len(self.history), 0)
+
+        # A success status goes in
+        A.setStatus(A.head_sha, 'success', 'null', 'null', 'check')
+        self.fake_github.emitEvent(A.getCommitStatusEvent('success'))
+        self.waitUntilSettled()
+        self.assertEqual(len(self.history), 1)
+        self.assertEqual(self.history[0].name, 'project2-trigger')

@@ -161,6 +161,21 @@ class GithubWebhookListener():
         event.action = body.get('action')
         return event
 
+    def _event_status(self, request):
+        body = request.json_body
+        action = body.get('action')
+        if action == 'pending':
+            return
+        pr_body = self.connection.getPullBySha(body['sha'])
+        if pr_body is None:
+            return
+
+        event = self._pull_request_to_event(pr_body)
+        event.account = self._get_sender(body)
+        event.type = 'pull_request'
+        event.action = 'status'
+        return event
+
     def _issue_to_pull_request(self, body):
         number = body.get('issue').get('number')
         project_name = body.get('repository').get('full_name')
@@ -403,6 +418,30 @@ class GithubConnection(BaseConnection):
         # Zuul whether or not those protections have been met
         # For now, just send back a True value.
         return True
+
+    def getPullBySha(self, sha):
+        query = '%s type:pr is:open' % sha
+        pulls = []
+        for issue in self.github.search_issues(query=query):
+            pr_url = issue.pull_request.get('url')
+            if not pr_url:
+                continue
+            # the issue provides no good description of the project :\
+            owner, project, _, number = pr_url.split('/')[4:]
+            pr = self.github.pull_request(owner, project, number)
+            if pr.head.sha != sha:
+                continue
+            if pr.as_dict() in pulls:
+                continue
+            pulls.append(pr.as_dict())
+
+        log_rate_limit(self.log, self.github)
+        if len(pulls) > 1:
+            raise Exception('Multiple pulls found with head sha %s' % sha)
+
+        if len(pulls) == 0:
+            return None
+        return pulls.pop()
 
     def getPullFileNames(self, project, number):
         owner, proj = project.name.split('/')
