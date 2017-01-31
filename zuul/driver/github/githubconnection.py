@@ -29,6 +29,18 @@ from zuul.model import PullRequest, Ref, GithubTriggerEvent
 from zuul.exceptions import MergeFailure
 
 
+# The reviews API is a developer preview.  These are the review states
+# we currently react to. See: https://developer.github.com/v3/pulls/reviews/
+REVIEW_APPROVED = 'APPROVED'
+REVIEW_CHANGES_REQUESTED = 'CHANGES_REQUESTED'
+REVIEW_COMMENTED = 'COMMENTED'
+REVIEW_STATES = [
+    REVIEW_APPROVED,
+    REVIEW_CHANGES_REQUESTED,
+    REVIEW_COMMENTED,
+]
+
+
 class GithubWebhookListener():
 
     log = logging.getLogger("zuul.GithubWebhookListener")
@@ -358,6 +370,7 @@ class GithubConnection(BaseConnection):
             change.files = self.getPullFileNames(project, change.number)
             change.title = event.title
             change.status = event.statuses
+            change.approvals = self.getPullReviews(project, change.number)
             change.source_event = event
         elif event.ref:
             change = Ref(project)
@@ -450,11 +463,97 @@ class GithubConnection(BaseConnection):
         log_rate_limit(self.log, self.github)
         return filenames
 
+    def getPullReviews(self, project, number):
+        owner, proj = project.name.split('/')
+
+        reviews = self._getPullReviews(owner, proj, number)
+        # We are mapping reviews to something that looks gerrit approvals
+        # 'APPROVE' and 'REQUEST_CHANGES' are a review type of
+        # 'review', where as `COMMENT` is a type of 'comment'.
+        # Users with write access get a value of 2/-2 whereas users without
+        # write access get a value of 1/-1.
+
+        approvals = []
+        for review in reviews:
+            if review.get('state') not in REVIEW_STATES:
+                continue
+
+            approval = {
+                'by': {
+                    'username': review.get('user').get('login'),
+                    'email': review.get('user').get('email'),
+                },
+                'grantedOn': review.get('provided'),
+            }
+
+            # Determine type
+            if review.get('state') == REVIEW_COMMENTED:
+                approval['type'] = 'comment'
+                approval['description'] = 'comment'
+                approval['value'] = '0'
+            else:
+                approval['type'] = 'review'
+                approval['description'] = 'review'
+
+            # Get user's rights
+            user_can_write = False
+            permission = self.getRepoPermission(
+                project.name, review.get('user').get('login'))
+            if permission in ['admin', 'write']:
+                user_can_write = True
+
+            # Determine value
+            if review.get('state') == REVIEW_APPROVED:
+                if user_can_write:
+                    approval['value'] = '2'
+                else:
+                    approval['value'] = '1'
+            elif review.get('state') == REVIEW_CHANGES_REQUESTED:
+                if user_can_write:
+                    approval['value'] = '-2'
+                else:
+                    approval['value'] = '-1'
+
+            approvals.append(approval)
+        return approvals
+
+    def _getPullReviews(self, owner, project, number):
+        # make a list out of the reviews so that we complete our
+        # API transaction
+        reviews = [review.as_dict() for review in
+                   self.github.pull_request(owner, project, number).reviews()]
+
+        log_rate_limit(self.log, self.github)
+        return reviews
+
     def getUser(self, login):
         return GithubUser(self.github, login)
 
     def getUserUri(self, login):
         return 'https://%s/%s' % (self.git_host, login)
+
+    def getRepoPermission(self, project, login):
+        owner, proj = project.split('/')
+        # This gets around a missing API call
+        # need preview header
+        headers = {'Accept': 'application/vnd.github.korra-preview'}
+
+        # Create a repo object
+        repository = self.github.repository(owner, proj)
+        # Build up a URL
+        url = repository._build_url('collaborators', login, 'permission',
+                                    base_url=repository._api)
+        # Get the data
+        perms = repository._get(url, headers=headers)
+
+        log_rate_limit(self.log, self.github)
+
+        # no known user, maybe deleted since review?
+        if perms.status_code == 404:
+            return 'none'
+
+        # get permissions from the data
+        return perms.json()['permission']
 
     def commentPull(self, project, pr_number, message):
         owner, proj = project.split('/')
