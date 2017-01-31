@@ -27,10 +27,62 @@
       github:
         status: 'failure'
 
+- pipeline:
+    name: reviewusername
+    manager: independent
+    require:
+      approval:
+        - username: '^(herp|derp)$'
+    trigger:
+      github:
+        - event: pull_request
+          action: comment
+          comment: 'test me'
+    success:
+      github:
+        comment: true
+
+- pipeline:
+    name: reviewreq
+    manager: independent
+    require:
+      approval:
+        - review: 2
+    trigger:
+      github:
+        - event: pull_request
+          action: comment
+          comment: 'test me'
+    success:
+      github:
+        comment: true
+
+- pipeline:
+    name: reviewuserstate
+    manager: independent
+    require:
+      approval:
+        - username: 'derp'
+          review: 2
+    trigger:
+      github:
+        - event: pull_request
+          action: comment
+          comment: 'test me'
+    success:
+      github:
+        comment: true
+
 - job:
     name: project1-pipeline
 - job:
     name: project2-trigger
+- job:
+    name: project3-reviewusername
+- job:
+    name: project4-reviewreq
+- job:
+    name: project5-reviewuserstate
 
 - project:
     name: org/project1
@@ -43,3 +95,21 @@
     trigger:
       jobs:
         - project2-trigger
+
+- project:
+    name: org/project3
+    reviewusername:
+      jobs:
+        - project3-reviewusername
+
+- project:
+    name: org/project4
+    reviewreq:
+      jobs:
+        - project4-reviewreq
+
+- project:
+    name: org/project5
+    reviewuserstate:
+      jobs:
+        - project5-reviewuserstate
