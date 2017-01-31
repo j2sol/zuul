@@ -353,6 +353,19 @@ explanation of each of the parameters::
     be a single value or a list: ``verified: [1, 2]`` would match
     either a +1 or +2 vote.
 
+    A note on GitHub; GitHub supports pull-request reviews. These
+    can be provided by anybody with read access to a repository. A
+    review may approve, request changes, or simply comment on the
+    change. Within Zuul these reviews are mapped to appear like an
+    approval. An ``approve`` or ``request_changes`` review is mapped
+    to a category of ``review``, whereas a ``comment`` review is
+    mapped to a category of ``comment``. If a reviewer has write
+    access to the repository in question, their review is given a
+    value of ``2`` or ``-2`` for ``approve`` or ``request_changes``
+    respectfully. Reviewers with only read access are assigned a
+    value of ``1`` or ``-1``. All ``comment`` reviews are given a
+    value of ``0``.
+
   **open**
   A boolean value (``true`` or ``false``) that indicates whether the change
   must be open or closed in order to be enqueued.
