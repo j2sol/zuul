@@ -106,7 +106,7 @@ class GithubReporter(BaseReporter):
             except MergeFailure:
                 self.log.debug(
                     'Merge attempt of change %s  %s/2 failed.' %
-                    (i, item.change))
+                    (i, item.change), exc_info=True)
                 if i == 1:
                     time.sleep(2)
         self.log.debug(
