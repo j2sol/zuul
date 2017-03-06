@@ -340,9 +340,7 @@ class GithubConnection(BaseConnection):
     def onStop(self):
         self.unregisterHttpHandler(self.payload_path)
 
-    def _authenticateGithubAPI(self):
-        config = self.connection_config
-
+    def _createGithubClient(self):
         if self.git_host != 'github.com':
             url = 'https://%s/' % self.git_host
             github = github3.GitHubEnterprise(url)
@@ -352,32 +350,40 @@ class GithubConnection(BaseConnection):
         # anything going through requests to http/s goes through cache
         github.session.mount('http://', self.cache_adapter)
         github.session.mount('https://', self.cache_adapter)
+        return github
+
+    def _authenticateGithubAPI(self):
+        config = self.connection_config
 
         api_token = config.get('api_token')
 
+        integration_id = config.get('integration_id')
+        integration_key = None
+        integration_key_file = config.get('integration_key')
+        installation_id = config.get('installation_id')
+
+        self._github = self._createGithubClient()
         if api_token:
-            github.login(token=api_token)
-        else:
-            integration_id = config.get('integration_id')
-            installation_id = config.get('installation_id')
-            integration_key_file = config.get('integration_key')
+            self._github.login(token=api_token)
 
-            if integration_key_file:
-                with open(integration_key_file, 'r') as f:
-                    integration_key = f.read()
+        if integration_key_file:
+            with open(integration_key_file, 'r') as f:
+                integration_key = f.read()
 
-            if not (integration_id and integration_key and installation_id):
-                self.log.warning("You must provide an integration_id, "
-                                 "integration_key and installation_id to use "
-                                 "installation based authentication")
+        if (integration_id or integration_key) and \
+                not (integration_id and integration_key):
+            self.log.warning("You must provide an integration_id and "
+                             "integration_key to use installation based "
+                             "authentication")
 
-                return
+            return
 
+        if integration_id:
             self.integration_id = int(integration_id)
+        if installation_id:
             self.installation_id = int(installation_id)
+        if integration_key:
             self.integration_key = integration_key
-
-        self._github = github
 
     def _get_installation_key(self, user_id=None):
         if not (self.installation_id and self.integration_id):
