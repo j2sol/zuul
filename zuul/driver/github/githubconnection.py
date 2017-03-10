@@ -426,8 +426,12 @@ class GithubConnection(BaseConnection):
             self._github.login(token=api_token)
 
         if integration_key_file:
-            with open(integration_key_file, 'r') as f:
-                integration_key = f.read()
+            try:
+                with open(integration_key_file, 'r') as f:
+                    integration_key = f.read()
+            except IOError:
+                m = "Failed to open integration key file for reading: %s"
+                self.log.error(m, integration_key_file)
 
         if (integration_id or integration_key) and \
                 not (integration_id and integration_key):
