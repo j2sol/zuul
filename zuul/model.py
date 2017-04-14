@@ -2071,10 +2071,10 @@ class EventFilter(BaseFilter):
                  event_approvals={}, comments=[], emails=[], usernames=[],
                  timespecs=[], required_approvals=[], reject_approvals=[],
                  pipelines=[], actions=[], labels=[], unlabels=[], states=[],
-                 statuses=[], ignore_deletes=True):
+                 event_statuses=[], ignore_deletes=True):
         super(EventFilter, self).__init__(
             required_approvals=required_approvals,
-            reject_approvals=reject_approvals, statuses=statuses)
+            reject_approvals=reject_approvals)
         self.trigger = trigger
         self._types = types
         self._branches = branches
@@ -2097,6 +2097,7 @@ class EventFilter(BaseFilter):
         self.unlabels = unlabels
         self.states = states
         self.ignore_deletes = ignore_deletes
+        self.event_statuses = event_statuses
 
     def __repr__(self):
         ret = '<EventFilter'
@@ -2136,8 +2137,8 @@ class EventFilter(BaseFilter):
             ret += ' unlabels: %s' % ', '.join(self.unlabels)
         if self.states:
             ret += ' states: %s' % ', '.join(self.states)
-        if self.statuses:
-            ret += ' statuses: %s' % ', '.join(self.statuses)
+        if self.event_statuses:
+            ret += ' event_statuses: %s' % ', '.join(self.event_statuses)
         ret += '>'
 
         return ret
@@ -2254,8 +2255,10 @@ class EventFilter(BaseFilter):
         if self.states and event.state not in self.states:
             return False
 
-        if not self.matchesStatuses(change):
-            return False
+        # statuses are ORed
+        if self.event_statuses:
+            if event.event_status not in self.event_statuses:
+                return False
 
         return True
 

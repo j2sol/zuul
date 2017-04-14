@@ -42,7 +42,7 @@ class GithubTrigger(BaseTrigger):
                 labels=toList(trigger.get('label')),
                 unlabels=toList(trigger.get('unlabel')),
                 states=toList(trigger.get('state')),
-                statuses=toList(trigger.get('status'))
+                event_statuses=toList(trigger.get('status'))
             )
             efilters.append(f)
 
