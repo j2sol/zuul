@@ -589,7 +589,7 @@ class TestScheduler(ZuulTestCase):
         self.waitUntilSettled()
         time.sleep(2)
 
-        data = json.loads(self.sched.formatStatusJSON())
+        data = json.loads(self.sched.formatStatusJSON('tenant-one'))
         found_job = None
         for pipeline in data['pipelines']:
             if pipeline['name'] != 'gate':
@@ -2623,10 +2623,9 @@ class TestScheduler(ZuulTestCase):
         self.assertEqual(len(tenant.layout.pipelines['check'].queues), 0)
         self.assertIn('Build succeeded', A.messages[0])
 
-    @skip("Disabled for early v3 development")
     def test_delayed_repo_init(self):
-        self.updateConfigLayout(
-            'tests/fixtures/layout-delayed-repo-init.yaml')
+        self.commitConfigUpdate('common-config',
+            'layouts/delayed-repo-init.yaml')
         self.sched.reconfigure(self.config)
 
         self.init_repo("org/new-project")
