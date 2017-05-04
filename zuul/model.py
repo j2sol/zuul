@@ -2070,10 +2070,11 @@ class EventFilter(BaseFilter):
                  event_approvals={}, comments=[], emails=[], usernames=[],
                  timespecs=[], required_approvals=[], reject_approvals=[],
                  pipelines=[], actions=[], labels=[], states=[],
-                 event_statuses=[], ignore_deletes=True):
+                 statuses=[], event_statuses=[], ignore_deletes=True):
         super(EventFilter, self).__init__(
             required_approvals=required_approvals,
-            reject_approvals=reject_approvals)
+            reject_approvals=reject_approvals,
+            statuses=statuses)
         self.trigger = trigger
         self._types = types
         self._branches = branches
@@ -2133,6 +2134,8 @@ class EventFilter(BaseFilter):
             ret += ' labels: %s' % ', '.join(self.labels)
         if self.states:
             ret += ' states: %s' % ', '.join(self.states)
+        if self.statuses:
+            ret += ' statuses: %s' % ', '.join(self.statuses)
         if self.event_statuses:
             ret += ' event_statuses: %s' % ', '.join(self.event_statuses)
         ret += '>'
@@ -2251,6 +2254,10 @@ class EventFilter(BaseFilter):
         if self.event_statuses:
             if event.event_status not in self.event_statuses:
                 return False
+
+        # See if the trigger has required statuses
+        if not self.matchesStatuses(change):
+            return False
 
         return True
 
