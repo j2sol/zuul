@@ -96,7 +96,7 @@ class GithubSource(BaseSource):
 
     def getRequireFilters(self, config):
         f = GithubRefFilter(
-            statuses=to_list(config.get('status')),
+            required_statuses=to_list(config.get('status')),
             required_reviews=to_list(config.get('review')),
         )
         return [f]

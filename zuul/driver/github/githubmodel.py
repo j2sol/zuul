@@ -243,20 +243,20 @@ class GithubEventFilter(EventFilter):
 
 
 class GithubRefFilter(RefFilter, GithubReviewFilter):
-    def __init__(self, statuses=[], required_reviews=[]):
+    def __init__(self, required_reviews=[], required_statuses=[]):
         RefFilter.__init__(self)
 
         GithubReviewFilter.__init__(self, required_reviews=required_reviews)
-        self.statuses = statuses
 
     def __repr__(self):
         ret = '<GithubRefFilter'
 
-        if self.statuses:
-            ret += ' statuses: %s' % ', '.join(self.statuses)
         if self.required_reviews:
             ret += (' required-reviews: %s' %
                     str(self.required_reviews))
+        if self.required_statuses:
+            ret += (' required-statuses: %s' %
+                    ', '.join(self.required_statuses))
 
         ret += '>'
 
@@ -267,8 +267,8 @@ class GithubRefFilter(RefFilter, GithubReviewFilter):
         # A PR head can have multiple statuses on it. If the change
         # statuses and the filter statuses are a null intersection, there
         # are no matches and we return false
-        if self.statuses:
-            if set(change.status).isdisjoint(set(self.statuses)):
+        if self.required_statuses:
+            if set(change.status).isdisjoint(set(self.required_statuses)):
                 return False
 
         # required reviews are ANDed
