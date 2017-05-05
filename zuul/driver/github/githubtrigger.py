@@ -43,6 +43,8 @@ class GithubTrigger(BaseTrigger):
                 unlabels=toList(trigger.get('unlabel')),
                 states=toList(trigger.get('state')),
                 statuses=toList(trigger.get('require-status')),
+                required_approvals=toList(trigger.get('require-approval')),
+                reject_approvals=toList(trigger.get('reject-approval')),
                 event_statuses=toList(trigger.get('status'))
             )
             efilters.append(f)
@@ -57,6 +59,13 @@ def getSchema():
     def toList(x):
         return v.Any([x], x)
 
+    approval = v.Schema({'username': str,
+                         'email-filter': str,
+                         'email': str,
+                         'older-than': str,
+                         'newer-than': str,
+                         }, extra=v.ALLOW_EXTRA)
+
     github_trigger = {
         v.Required('event'):
             toList(v.Any('pull_request',
@@ -70,6 +79,8 @@ def getSchema():
         'unlabel': toList(str),
         'state': toList(str),
         'require-status': toList(str),
+        'require-approval': toList(approval),
+        'reject-approval': toList(approval),
         'status': toList(str)
     }
 
