@@ -124,6 +124,35 @@
       github:
         comment: true
 
+- pipeline:
+    name: triggerreviewuserstate
+    manager: independent
+    trigger:
+      github:
+        - event: pull_request
+          action: comment
+          comment: 'test me'
+          require-approval:
+            - username: 'derp'
+              review: 2
+    success:
+      github:
+        comment: true
+
+- pipeline:
+    name: triggerreject
+    manager: independent
+    trigger:
+      github:
+        - event: pull_request
+          action: comment
+          comment: 'test me'
+          reject-approval:
+            - review: -2
+    success:
+      github:
+        comment: true
+
 - job:
     name: project1-pipeline
 - job:
@@ -138,6 +167,10 @@
     name: project6-newerthan
 - job:
     name: project7-olderthan
+- job:
+    name: project8-triggerreviewuserstate
+- job:
+    name: project9-triggerreject
 
 - project:
     name: org/project1
@@ -183,3 +216,15 @@
     older_than:
       jobs:
         - project7-olderthan
+
+- project:
+    name: org/project8
+    triggerreviewuserstate:
+      jobs:
+        - project8-triggerreviewuserstate
+
+- project:
+    name: org/project9
+    triggerreject:
+      jobs:
+        - project9-triggerreject
