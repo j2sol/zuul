@@ -2009,10 +2009,13 @@ class BaseFilter(object):
         return True
 
     def matchesApprovals(self, change):
-        if (self.required_approvals and not change.approvals
-                or self.reject_approvals and not change.approvals):
-            # A change with no approvals can not match
+        # A change with a required approval that does not have
+        # any approvals yet cannot match
+        if self.required_approvals and not change.approvals:
             return False
+
+        # A change with reject approvals that does not yet have an approval
+        # could possibly match, so run through the sets.
 
         # TODO(jhesketh): If we wanted to optimise this slightly we could
         # analyse both the REQUIRE and REJECT filters by looping over the
