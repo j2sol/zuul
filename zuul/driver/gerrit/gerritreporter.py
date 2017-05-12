@@ -25,9 +25,9 @@ class GerritReporter(BaseReporter):
     name = 'gerrit'
     log = logging.getLogger("zuul.GerritReporter")
 
-    def report(self, source, pipeline, item):
+    def report(self, source, item):
         """Send a message to gerrit."""
-        message = self._formatItemReport(pipeline, item)
+        message = self._formatItemReport(item)
 
         self.log.debug("Report change %s, params %s, message: %s" %
                        (item.change, self.config, message))
