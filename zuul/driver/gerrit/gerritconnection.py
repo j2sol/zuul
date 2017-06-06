@@ -76,6 +76,8 @@ class GerritEventConnector(threading.Thread):
         time.sleep(max((ts + self.delay) - now, 0.0))
         event = GerritTriggerEvent()
         event.type = data.get('type')
+        if event.type == 'change-merged':
+            event.branch_updated = True
         event.trigger_name = 'gerrit'
         change = data.get('change')
         event.project_hostname = self.connection.canonical_hostname
@@ -96,6 +98,10 @@ class GerritEventConnector(threading.Thread):
             event.ref = refupdate.get('refName')
             event.oldrev = refupdate.get('oldRev')
             event.newrev = refupdate.get('newRev')
+            if not event.ref.startswith('refs'):
+                # branches that are updated just have the bran ch name here
+                # but tags and such start with refs/
+                event.branch_updated = True
         if event.project_name is None:
             # ref-replica* events
             event.project_name = data.get('project')
