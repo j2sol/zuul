@@ -302,6 +302,8 @@ class DeduplicateQueue(object):
 
 def _copy_ansible_files(python_module, target_dir):
         library_path = os.path.dirname(os.path.abspath(python_module.__file__))
+        if os.path.exists(target_dir):
+            shutil.rmtree(target_dir)
         for fn in os.listdir(library_path):
             if fn == "__pycache__":
                 continue
