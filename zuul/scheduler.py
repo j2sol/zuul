@@ -752,7 +752,7 @@ class Scheduler(threading.Thread):
                                    "source %s",
                                    e.change, project.source)
                     continue
-                if (event.type == 'change-merged' and
+                if (event.branch_updated and
                     hasattr(change, 'files') and
                     change.updatesConfig()):
                     # The change that just landed updates the config.

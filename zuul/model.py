@@ -1894,6 +1894,7 @@ class TriggerEvent(object):
         self.data = None
         # common
         self.type = None
+        self.branch_updated = False
         # For management events (eg: enqueue / promote)
         self.tenant_name = None
         self.project_hostname = None
