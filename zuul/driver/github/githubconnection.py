@@ -524,6 +524,7 @@ class GithubConnection(BaseConnection):
                                            change.patchset)
         change.reviews = self.getPullReviews(change.project,
                                              change.number)
+        change.labels = change.pr.get('labels')
 
         return change
 
@@ -566,8 +567,11 @@ class GithubConnection(BaseConnection):
         github = self.getGithubClient(project_name)
         owner, proj = project_name.split('/')
         probj = github.pull_request(owner, proj, number)
+        # Get the issue obj so we can get the labels (this is silly)
+        issueobj = probj.issue()
         pr = probj.as_dict()
         pr['files'] = [f.filename for f in probj.files()]
+        pr['labels'] = [l.name for l in issueobj.labels()]
         log_rate_limit(self.log, github)
         return pr
 

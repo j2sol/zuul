@@ -28,9 +28,13 @@ EMPTY_GIT_REF = '0' * 40  # git sha of all zeros, used during creates/deletes
 class PullRequest(Change):
     def __init__(self, project):
         super(PullRequest, self).__init__(project)
+        self.project = None
+        self.pr = None
         self.updated_at = None
         self.title = None
         self.reviews = []
+        self.files = []
+        self.labels = []
 
     def isUpdateOf(self, other):
         if (hasattr(other, 'number') and self.number == other.number and
@@ -271,7 +275,7 @@ class GithubEventFilter(EventFilter, GithubCommonFilter):
 
 class GithubRefFilter(RefFilter, GithubCommonFilter):
     def __init__(self, connection_name, statuses=[], required_reviews=[],
-                 open=None, current_patchset=None):
+                 open=None, current_patchset=None, labels=[]):
         RefFilter.__init__(self, connection_name)
 
         GithubCommonFilter.__init__(self, required_reviews=required_reviews,
@@ -279,6 +283,7 @@ class GithubRefFilter(RefFilter, GithubCommonFilter):
         self.statuses = statuses
         self.open = open
         self.current_patchset = current_patchset
+        self.labels = labels
 
     def __repr__(self):
         ret = '<GithubRefFilter'
@@ -293,6 +298,8 @@ class GithubRefFilter(RefFilter, GithubCommonFilter):
             ret += ' open: %s' % self.open
         if self.current_patchset:
             ret += ' current-patchset: %s' % self.current_patchset
+        if self.labels:
+            ret += ' labels: %s' % self.labels
 
         ret += '>'
 
@@ -323,5 +330,10 @@ class GithubRefFilter(RefFilter, GithubCommonFilter):
         # required reviews are ANDed
         if not self.matchesReviews(change):
             return False
+
+        # required labels are ANDed
+        for label in self.labels:
+            if label not in change.labels:
+                return False
 
         return True
