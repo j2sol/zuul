@@ -1088,8 +1088,9 @@ class FakeGithubConnection(githubconnection.GithubConnection):
         }
         return data
 
-    def getPullBySha(self, sha):
-        prs = list(set([p for p in self.pull_requests if sha == p.head_sha]))
+    def getPullBySha(self, sha, project):
+        prs = list(set([p for p in self.pull_requests if
+                        sha == p.head_sha and project == p.project]))
         if len(prs) > 1:
             raise Exception('Multiple pulls found with head sha: %s' % sha)
         pr = prs[0]
