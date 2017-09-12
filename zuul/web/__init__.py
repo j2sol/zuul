@@ -173,6 +173,7 @@ class GearmanHandler(object):
             'tenant_list': self.tenant_list,
             'status_get': self.status_get,
             'job_list': self.job_list,
+            'key_get': self.key_get,
         }
         self.rpc = zuul.rpcclient.RPCClient(self.gear_server, self.gear_port,
                                             self.ssl_key, self.ssl_cert,
@@ -200,6 +201,13 @@ class GearmanHandler(object):
         tenant = request.match_info["tenant"]
         job = self.rpc.submitJob('zuul:job_list', {'tenant': tenant})
         return web.json_response(json.loads(job.data[0]))
+
+    def key_get(self, rpc, request):
+        source = request.match_info["source"]
+        project = request.match_info["project"]
+        job = rpc.submitJob('zuul:key_get', {'source': source,
+                                             'project': project})
+        return web.Response(body=job.data[0])
 
     async def processRequest(self, request, action):
         try:
@@ -343,6 +351,9 @@ class ZuulWeb(object):
     async def _handleSqlRequest(self, request):
         return await self.sql_handler.processRequest(request)
 
+    async def _handleKeyRequest(self, request):
+        return await self.gearman_handler.processRequest(request, 'key')
+
     async def _handleStaticRequest(self, request):
         fp = None
         if request.path.endswith("tenants.html") or request.path.endswith("/"):
@@ -371,6 +382,7 @@ class ZuulWeb(object):
             ('GET', '/tenants.json', self._handleTenantsRequest),
             ('GET', '/{tenant}/status.json', self._handleStatusRequest),
             ('GET', '/{tenant}/jobs.json', self._handleJobsRequest),
+            ('GET', '/{source}/{project}.pem', self._handleKeyRequest),
             ('GET', '/{tenant}/status.html', self._handleStaticRequest),
             ('GET', '/{tenant}/jobs.html', self._handleStaticRequest),
             ('GET', '/tenants.html', self._handleStaticRequest),
