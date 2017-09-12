@@ -1,0 +1,28 @@
+External requirements needs to be installed in these location
+* /static/js/angular.min.js
+* /static/js/jquery.min.js
+* /static/js/jquery-visibility.min.js
+* /static/js/jquery.graphite.min.js
+* /static/bootstrap/css/bootstrap.min.css
+
+Here is an example apache vhost configuration:
+<VirtualHost zuul-web.example.com:80>
+  DocumentRoot /var/www/zuul-web
+
+  LogLevel warn
+
+  <Directory /var/www/zuul-web/>
+    Options FollowSymLinks
+  </Directory>
+
+  RewriteEngine on
+  # Serve zuul-web /static file
+  RewriteRule ^/static/(.*) /$1 [L]
+  # Serve /{tenant}/*.html file
+  RewriteRule ^/.*/(.*).html /$1.html [L]
+  # Redirect all the json query to the zuul-web service
+  RewriteRule ^/(.*).json http://127.0.0.1:9000/$1 [P]
+</VirtualHost>
+
+Then copy the zuul/web/static/ files and external requirements to
+/var/www/zuul-web
