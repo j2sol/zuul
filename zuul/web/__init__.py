@@ -20,10 +20,13 @@ import json
 import logging
 import os
 import time
+import urllib.parse
 import uvloop
 
 import aiohttp
 from aiohttp import web
+
+from sqlalchemy.sql import select
 
 import zuul.rpcclient
 
@@ -210,13 +213,99 @@ class GearmanHandler(object):
         return resp
 
 
+class SqlHandler(object):
+    log = logging.getLogger("zuul.web.SqlHandler")
+    filters = ("project", "pipeline", "change", "patchset", "ref",
+               "result", "uuid", "job_name", "voting", "node_name")
+
+    def __init__(self, sql_connections):
+        self.sql_connections = sql_connections
+
+    def query(self, connection, args):
+        build = connection.zuul_build_table
+        buildset = connection.zuul_buildset_table
+        query = select([
+            build.c.id,
+            buildset.c.tenant,
+            buildset.c.project,
+            buildset.c.pipeline,
+            buildset.c.change,
+            buildset.c.patchset,
+            buildset.c.ref,
+            buildset.c.ref_url,
+            build.c.result,
+            build.c.uuid,
+            build.c.job_name,
+            build.c.voting,
+            build.c.node_name,
+            build.c.start_time,
+            build.c.end_time,
+            build.c.log_url]).select_from(build.join(buildset))
+        for table in ('build', 'buildset'):
+            for k, v in args['%s_filters' % table].items():
+                if table == 'build':
+                    column = build.c
+                else:
+                    column = buildset.c
+                query = query.where(getattr(column, k).in_(v))
+        return query.limit(args['limit']).offset(args['skip']).order_by(
+            build.c.id.desc())
+
+    def get_builds(self, args):
+        """Return a list of build"""
+        builds = []
+        for connection in self.sql_connections.values():
+            with connection.engine.begin() as conn:
+                query = self.query(connection, args)
+                for row in conn.execute(query):
+                    build = dict(row)
+                    # Convert date to iso format
+                    build['start_time'] = row.start_time.strftime(
+                        '%Y-%m-%dT%H:%M:%S')
+                    build['end_time'] = row.end_time.strftime(
+                        '%Y-%m-%dT%H:%M:%S')
+                    # Compute run duration
+                    build['duration'] = (row.end_time -
+                                         row.start_time).total_seconds()
+                    builds.append(build)
+        return builds
+
+    async def processRequest(self, request):
+        try:
+            args = {
+                'buildset_filters': {},
+                'build_filters': {},
+                'limit': 50,
+                'skip': 0,
+            }
+            for k, v in urllib.parse.parse_qsl(request.rel_url.query_string):
+                if k in ("tenant", "project", "pipeline", "change",
+                         "patchset", "ref"):
+                    args['buildset_filters'].setdefault(k, []).append(v)
+                elif k in ("uuid", "job_name", "voting", "node_name",
+                           "result"):
+                    args['build_filters'].setdefault(k, []).append(v)
+                elif k in ("limit", "skip"):
+                    args[k] = int(v)
+                else:
+                    raise ValueError("Unknown parameter %s" % k)
+            data = self.get_builds(args)
+            resp = web.json_response(data)
+        except Exception as e:
+            self.log.exception("Jobs exception:")
+            resp = web.json_response({'error_description': 'Internal error'},
+                                     status=500)
+        return resp
+
+
 class ZuulWeb(object):
 
     log = logging.getLogger("zuul.web.ZuulWeb")
 
     def __init__(self, listen_address, listen_port,
                  gear_server, gear_port,
-                 ssl_key=None, ssl_cert=None, ssl_ca=None):
+                 ssl_key=None, ssl_cert=None, ssl_ca=None,
+                 sql_connections={}):
         self.listen_address = listen_address
         self.listen_port = listen_port
         self.gear_server = gear_server
@@ -227,6 +316,10 @@ class ZuulWeb(object):
         self.event_loop = None
         self.term = None
         # instanciate handlers
+        if sql_connections:
+            self.sql_handler = SqlHandler(sql_connections)
+        else:
+            self.sql_handler = None
         self.gearman_handler = GearmanHandler(
             self.gear_server, self.gear_port, self.ssl_key, self.ssl_cert,
             self.ssl_ca)
@@ -247,6 +340,9 @@ class ZuulWeb(object):
     async def _handleJobsRequest(self, request):
         return await self.gearman_handler.processRequest(request, 'job_list')
 
+    async def _handleSqlRequest(self, request):
+        return await self.sql_handler.processRequest(request)
+
     async def _handleStaticRequest(self, request):
         fp = None
         if request.path.endswith("tenants.html") or request.path.endswith("/"):
@@ -255,6 +351,8 @@ class ZuulWeb(object):
             fp = os.path.join(STATIC_DIR, "status.html")
         elif request.path.endswith("jobs.html"):
             fp = os.path.join(STATIC_DIR, "jobs.html")
+        elif request.path.endswith("builds.html"):
+            fp = os.path.join(STATIC_DIR, "builds.html")
         return web.FileResponse(fp)
 
     def run(self, loop=None):
@@ -278,6 +376,12 @@ class ZuulWeb(object):
             ('GET', '/tenants.html', self._handleStaticRequest),
             ('GET', '/', self._handleStaticRequest),
         ]
+
+        if self.sql_handler:
+            routes.append(('GET', '/{tenant}/builds.json',
+                           self._handleSqlRequest))
+            routes.append(('GET', '/{tenant}/builds.html',
+                           self._handleStaticRequest))
 
         self.log.debug("ZuulWeb starting")
         asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())

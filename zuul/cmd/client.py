@@ -28,6 +28,7 @@ import time
 
 import zuul.rpcclient
 import zuul.cmd
+import zuul.web
 from zuul.lib.config import get_default
 
 
@@ -126,6 +127,19 @@ class Client(zuul.cmd.ZuulApp):
 
         # TODO: add filters such as queue, project, changeid etc
         show_running_jobs.set_defaults(func=self.show_running_jobs)
+
+        show_builds = show_subparsers.add_parser('builds',
+                                                 help='show the builds')
+        show_builds.add_argument("tenant", nargs=1,
+                                 help='tenant\'s name build')
+        for filter_name in zuul.web.SqlHandler.filters:
+            if filter_name == "tenant":
+                continue
+            show_builds.add_argument('--%s' % filter_name, action='append',
+                                     help="filter by %s" % filter_name)
+        show_builds.add_argument('--limit', type=int, help="Limit the query")
+        show_builds.add_argument('--skip', type=int, help="Skip rows")
+        show_builds.set_defaults(func=self.show_builds)
 
         show_jobs = show_subparsers.add_parser('jobs',
                                                help='show the jobs defined')
@@ -263,6 +277,20 @@ class Client(zuul.cmd.ZuulApp):
             table.add_row(values)
         print(table)
         return True
+
+    def show_builds(self):
+        params = {}
+        for filter_name in zuul.web.SqlHandler.filters:
+            if hasattr(self.args, filter_name) and \
+               getattr(self.args, filter_name):
+                for param in getattr(self.args, filter_name):
+                    params[filter_name] = param
+        return self.print_web_query(
+            "/%s/builds.json?" % self.args.tenant[0], [
+                "job_name", "project", "pipeline",
+                "change", "patchset", "ref",
+                "duration", "result", "log_url", "end_time"],
+            params=params, limit=self.args.limit, skip=self.args.skip)
 
     def show_jobs(self):
         return self.print_web_query(
