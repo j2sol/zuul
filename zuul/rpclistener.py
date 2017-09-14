@@ -56,6 +56,7 @@ class RPCListener(object):
         self.worker.registerFunction("zuul:get_running_jobs")
         self.worker.registerFunction("zuul:get_job_log_stream_address")
         self.worker.registerFunction("zuul:tenant_list")
+        self.worker.registerFunction("zuul:status_get")
 
     def stop(self):
         self.log.debug("Stopping")
@@ -242,3 +243,8 @@ class RPCListener(object):
             output.append({'name': tenant_name,
                            'projects': len(tenant.untrusted_projects)})
         job.sendWorkComplete(json.dumps(output))
+
+    def handle_status_get(self, job):
+        args = json.loads(job.arguments)
+        output = self.sched.formatStatusJSON(args.get("tenant"))
+        job.sendWorkComplete(output)

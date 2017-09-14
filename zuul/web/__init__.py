@@ -19,6 +19,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 import uvloop
 
 import aiohttp
@@ -153,6 +154,9 @@ class LogStreamingHandler(object):
 class GearmanHandler(object):
     log = logging.getLogger("zuul.web.GearmanHandler")
 
+    # Tenant status cache expiry
+    cache_expiry = 1
+
     def __init__(self, gear_server, gear_port,
                  ssl_key=None, ssl_cert=None, ssl_ca=None):
         self.gear_server = gear_server
@@ -160,8 +164,11 @@ class GearmanHandler(object):
         self.ssl_key = ssl_key
         self.ssl_cert = ssl_cert
         self.ssl_ca = ssl_ca
+        self.cache = {}
+        self.cache_time = {}
         self.controllers = {
             'tenant_list': self.tenant_list,
+            'status_get': self.status_get,
         }
         self.rpc = zuul.rpcclient.RPCClient(self.gear_server, self.gear_port,
                                             self.ssl_key, self.ssl_cert,
@@ -170,6 +177,20 @@ class GearmanHandler(object):
     def tenant_list(self, request):
         job = self.rpc.submitJob('zuul:tenant_list', {})
         return web.json_response(json.loads(job.data[0]))
+
+    def status_get(self, request):
+        tenant = request.match_info["tenant"]
+        if tenant not in self.cache or \
+           (time.time() - self.cache_time[tenant]) > self.cache_expiry:
+            job = self.rpc.submitJob('zuul:status_get', {'tenant': tenant})
+            self.cache[tenant] = json.loads(job.data[0])
+            self.cache_time[tenant] = time.time()
+        resp = web.json_response(self.cache[tenant])
+        resp.headers['Access-Control-Allow-Origin'] = '*'
+        resp.headers["Cache-Control"] = "public, max-age=%d" % \
+                                        self.cache_expiry
+        resp.last_modified = self.cache_time[tenant]
+        return resp
 
     async def processRequest(self, request, action):
         try:
@@ -214,10 +235,15 @@ class ZuulWeb(object):
         return await self.gearman_handler.processRequest(request,
                                                          'tenant_list')
 
+    async def _handleStatusRequest(self, request):
+        return await self.gearman_handler.processRequest(request, 'status_get')
+
     async def _handleStaticRequest(self, request):
         fp = None
         if request.path.endswith("tenants.html") or request.path.endswith("/"):
             fp = os.path.join(STATIC_DIR, "index.html")
+        elif request.path.endswith("status.html"):
+            fp = os.path.join(STATIC_DIR, "status.html")
         return web.FileResponse(fp)
 
     def run(self, loop=None):
@@ -234,6 +260,8 @@ class ZuulWeb(object):
         routes = [
             ('GET', '/console-stream', self._handleWebsocket),
             ('GET', '/tenants.json', self._handleTenantsRequest),
+            ('GET', '/{tenant}/status.json', self._handleStatusRequest),
+            ('GET', '/{tenant}/status.html', self._handleStaticRequest),
             ('GET', '/tenants.html', self._handleStaticRequest),
             ('GET', '/', self._handleStaticRequest),
         ]
