@@ -26,6 +26,7 @@ import zuul.cmd
 import zuul.web
 
 from zuul.driver.sql import sqlconnection
+from zuul.driver.github import githubconnection
 from zuul.lib.config import get_default
 
 # as of python-daemon 1.6 it doesn't bundle pidlockfile anymore
@@ -54,7 +55,7 @@ class WebServer(zuul.cmd.ZuulApp):
 
         params['listen_address'] = get_default(self.config,
                                                'web', 'listen_address',
-                                               '127.0.0.1')
+                                               '0.0.0.0')
         params['listen_port'] = get_default(self.config, 'web', 'port', 9000)
         params['gear_server'] = get_default(self.config, 'gearman', 'server')
         params['gear_port'] = get_default(self.config, 'gearman', 'port', 4730)
@@ -66,6 +67,11 @@ class WebServer(zuul.cmd.ZuulApp):
         for conn_name, connection in self.connections.connections.items():
             if isinstance(connection, sqlconnection.SQLConnection):
                 params['sql_connections'][conn_name] = connection
+
+        params['github_connections'] = {}
+        for conn_name, connection in self.connections.connections.items():
+            if isinstance(connection, githubconnection.GithubConnection):
+                params['github_connections'][conn_name] = connection
 
         try:
             self.web = zuul.web.ZuulWeb(**params)

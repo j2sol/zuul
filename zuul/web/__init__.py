@@ -16,6 +16,8 @@
 
 
 import asyncio
+import hashlib
+import hmac
 import json
 import logging
 import os
@@ -31,6 +33,12 @@ from sqlalchemy.sql import select
 import zuul.rpcclient
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), 'static')
+
+
+def _sign_request(body, secret):
+    signature = 'sha1=' + hmac.new(
+        secret.encode('utf-8'), body, hashlib.sha1).hexdigest()
+    return signature
 
 
 class LogStreamingHandler(object):
@@ -161,12 +169,14 @@ class GearmanHandler(object):
     cache_expiry = 1
 
     def __init__(self, gear_server, gear_port,
-                 ssl_key=None, ssl_cert=None, ssl_ca=None):
+                 ssl_key=None, ssl_cert=None, ssl_ca=None,
+                 github_connections={}):
         self.gear_server = gear_server
         self.gear_port = gear_port
         self.ssl_key = ssl_key
         self.ssl_cert = ssl_cert
         self.ssl_ca = ssl_ca
+        self.github_connections = github_connections
         self.cache = {}
         self.cache_time = {}
         self.controllers = {
@@ -174,16 +184,21 @@ class GearmanHandler(object):
             'status_get': self.status_get,
             'job_list': self.job_list,
             'key_get': self.key_get,
+            'github_payload': self.github_payload,
         }
+        if self.github_connections:
+            self.controllers.update({
+                'github_payload': self.github_payload,
+            })
         self.rpc = zuul.rpcclient.RPCClient(self.gear_server, self.gear_port,
                                             self.ssl_key, self.ssl_cert,
                                             self.ssl_ca)
 
-    def tenant_list(self, request):
+    async def tenant_list(self, request):
         job = self.rpc.submitJob('zuul:tenant_list', {})
         return web.json_response(json.loads(job.data[0]))
 
-    def status_get(self, request):
+    async def status_get(self, request):
         tenant = request.match_info["tenant"]
         if tenant not in self.cache or \
            (time.time() - self.cache_time[tenant]) > self.cache_expiry:
@@ -197,21 +212,59 @@ class GearmanHandler(object):
         resp.last_modified = self.cache_time[tenant]
         return resp
 
-    def job_list(self, request):
+    async def job_list(self, request):
         tenant = request.match_info["tenant"]
         job = self.rpc.submitJob('zuul:job_list', {'tenant': tenant})
         return web.json_response(json.loads(job.data[0]))
 
-    def key_get(self, rpc, request):
+    async def key_get(self, rpc, request):
         source = request.match_info["source"]
         project = request.match_info["project"]
         job = rpc.submitJob('zuul:key_get', {'source': source,
                                              'project': project})
         return web.Response(body=job.data[0])
 
+    def _validate_signature(self, body, headers):
+        #secret = self.connection.connection_config.get('webhook_token', None)
+        secret = '00000000000000000000000000000000000000000'
+        if secret is None:
+            raise RuntimeError("webhook_token is required")
+
+        try:
+            request_signature = headers['X-Hub-Signature']
+        except KeyError:
+            # TODO(jlk): Raise this as something different?
+            raise webob.exc.HTTPUnauthorized(
+                'Please specify a X-Hub-Signature header with secret.')
+
+        payload_signature = _sign_request(body, secret)
+
+        self.log.debug("Payload Signature: {0}".format(str(payload_signature)))
+        self.log.debug("Request Signature: {0}".format(str(request_signature)))
+        if not hmac.compare_digest(
+            str(payload_signature), str(request_signature)):
+            # TODO(jlk): Raise this as something different?
+            raise(
+                'Request signature does not match calculated payload '
+                'signature. Check that secret is correct.')
+
+        return True
+
+    async def github_payload(self, request):
+        self.log.debug("In github_payload")
+        # TODO(jlk): Figure out how to get the connection config data
+        connection = request.match_info["connection"]
+        headers = dict(request.headers)
+        body = await request.read()
+        self._validate_signature(body, headers)
+        json_body = json.loads(body.decode('utf-8'))
+        job = self.rpc.submitJob('zuul:github:%s:payload' % connection,
+                                 {'headers': headers, 'body': json_body})
+        return web.json_response(json.loads(job.data[0]))
+
     async def processRequest(self, request, action):
         try:
-            resp = self.controllers[action](request)
+            resp = await self.controllers[action](request)
         except asyncio.CancelledError:
             self.log.debug("request handling cancelled")
         except Exception as e:
@@ -313,7 +366,7 @@ class ZuulWeb(object):
     def __init__(self, listen_address, listen_port,
                  gear_server, gear_port,
                  ssl_key=None, ssl_cert=None, ssl_ca=None,
-                 sql_connections={}):
+                 sql_connections={}, github_connections={}):
         self.listen_address = listen_address
         self.listen_port = listen_port
         self.gear_server = gear_server
@@ -323,6 +376,7 @@ class ZuulWeb(object):
         self.ssl_ca = ssl_ca
         self.event_loop = None
         self.term = None
+        self.github_connections = github_connections
         # instanciate handlers
         if sql_connections:
             self.sql_handler = SqlHandler(sql_connections)
@@ -330,7 +384,7 @@ class ZuulWeb(object):
             self.sql_handler = None
         self.gearman_handler = GearmanHandler(
             self.gear_server, self.gear_port, self.ssl_key, self.ssl_cert,
-            self.ssl_ca)
+            self.ssl_ca, self.github_connections)
 
     async def _handleWebsocket(self, request):
         handler = LogStreamingHandler(self.event_loop,
@@ -353,6 +407,10 @@ class ZuulWeb(object):
 
     async def _handleKeyRequest(self, request):
         return await self.gearman_handler.processRequest(request, 'key')
+
+    async def _handleGithubRequest(self, request):
+        self.log.debug("in _handleGithubRequest")
+        return await self.gearman_handler.processRequest(request, 'github_payload')
 
     async def _handleStaticRequest(self, request):
         fp = None
@@ -386,6 +444,8 @@ class ZuulWeb(object):
             ('GET', '/{tenant}/status.html', self._handleStaticRequest),
             ('GET', '/{tenant}/jobs.html', self._handleStaticRequest),
             ('GET', '/tenants.html', self._handleStaticRequest),
+            ('POST', '/connection/{connection}/payload',
+             self._handleGithubRequest), # TODO(jlk): Are we okay with github owning "payload"?
             ('GET', '/', self._handleStaticRequest),
         ]
 
@@ -406,6 +466,7 @@ class ZuulWeb(object):
 
         app = web.Application()
         for method, path, handler in routes:
+            self.log.debug("adding path %s" % path)
             app.router.add_route(method, path, handler)
         app.router.add_static('/static', STATIC_DIR)
         handler = app.make_handler(loop=self.event_loop)
