@@ -169,6 +169,7 @@ class GearmanHandler(object):
         self.controllers = {
             'tenant_list': self.tenant_list,
             'status_get': self.status_get,
+            'job_list': self.job_list,
         }
         self.rpc = zuul.rpcclient.RPCClient(self.gear_server, self.gear_port,
                                             self.ssl_key, self.ssl_cert,
@@ -191,6 +192,11 @@ class GearmanHandler(object):
                                         self.cache_expiry
         resp.last_modified = self.cache_time[tenant]
         return resp
+
+    def job_list(self, request):
+        tenant = request.match_info["tenant"]
+        job = self.rpc.submitJob('zuul:job_list', {'tenant': tenant})
+        return web.json_response(json.loads(job.data[0]))
 
     async def processRequest(self, request, action):
         try:
@@ -238,12 +244,17 @@ class ZuulWeb(object):
     async def _handleStatusRequest(self, request):
         return await self.gearman_handler.processRequest(request, 'status_get')
 
+    async def _handleJobsRequest(self, request):
+        return await self.gearman_handler.processRequest(request, 'job_list')
+
     async def _handleStaticRequest(self, request):
         fp = None
         if request.path.endswith("tenants.html") or request.path.endswith("/"):
             fp = os.path.join(STATIC_DIR, "index.html")
         elif request.path.endswith("status.html"):
             fp = os.path.join(STATIC_DIR, "status.html")
+        elif request.path.endswith("jobs.html"):
+            fp = os.path.join(STATIC_DIR, "jobs.html")
         return web.FileResponse(fp)
 
     def run(self, loop=None):
@@ -261,7 +272,9 @@ class ZuulWeb(object):
             ('GET', '/console-stream', self._handleWebsocket),
             ('GET', '/tenants.json', self._handleTenantsRequest),
             ('GET', '/{tenant}/status.json', self._handleStatusRequest),
+            ('GET', '/{tenant}/jobs.json', self._handleJobsRequest),
             ('GET', '/{tenant}/status.html', self._handleStaticRequest),
+            ('GET', '/{tenant}/jobs.html', self._handleStaticRequest),
             ('GET', '/tenants.html', self._handleStaticRequest),
             ('GET', '/', self._handleStaticRequest),
         ]

@@ -460,6 +460,7 @@ class JobParser(object):
         reference = layout.jobs.get(conf['name'], [None])[0]
 
         job = model.Job(conf['name'])
+        job.description = conf.get('description')
         job.source_context = conf.get('_source_context')
 
         is_variant = layout.hasJob(conf['name'])

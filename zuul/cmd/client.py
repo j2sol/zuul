@@ -17,9 +17,12 @@
 import argparse
 import babel.dates
 import datetime
+import json
 import logging
 import prettytable
 import sys
+import urllib.parse
+import urllib.request
 import time
 
 
@@ -36,6 +39,7 @@ class Client(zuul.cmd.ZuulApp):
             description='Zuul Project Gating System Client.')
         parser.add_argument('-c', dest='config',
                             help='specify the config file')
+        parser.add_argument('--web-url', help='the zuul-web host url'),
         parser.add_argument('-v', dest='verbose', action='store_true',
                             help='verbose output')
         parser.add_argument('--version', dest='version', action='version',
@@ -122,6 +126,12 @@ class Client(zuul.cmd.ZuulApp):
 
         # TODO: add filters such as queue, project, changeid etc
         show_running_jobs.set_defaults(func=self.show_running_jobs)
+
+        show_jobs = show_subparsers.add_parser('jobs',
+                                               help='show the jobs defined')
+        show_jobs.add_argument("tenant", nargs=1,
+                               help='tenant\'s name build')
+        show_jobs.set_defaults(func=self.show_jobs)
 
         self.args = parser.parse_args()
         if not getattr(self.args, 'func', None):
@@ -227,6 +237,36 @@ class Client(zuul.cmd.ZuulApp):
                 table.add_row(values)
         print(table)
         return True
+
+    def print_web_query(self, path, fields, params={}, limit=None, skip=None):
+        if limit is not None:
+            params.append(('limit', limit))
+        if skip is not None:
+            params.append(('skip', skip))
+        if not self.args.web_url:
+            self.args.web_url = "http://localhost:%s" % (
+                get_default(self.config, 'web', 'port', 9000))
+        url = "%s%s%s" % (self.args.web_url, path,
+                          urllib.parse.urlencode(params))
+        self.log.info("Fetching %s" % url)
+        try:
+            with urllib.request.urlopen(url) as f:
+                jobs = json.loads(f.read().decode('utf-8'))
+        except:
+            self.log.exception("Couldn't fetch %s" % url)
+            sys.exit(1)
+        table = prettytable.PrettyTable(field_names=fields)
+        for job in jobs:
+            values = []
+            for field in fields:
+                values.append(job[field])
+            table.add_row(values)
+        print(table)
+        return True
+
+    def show_jobs(self):
+        return self.print_web_query(
+            "/%s/jobs.json?" % self.args.tenant[0], ["name", "description"])
 
     def _epoch_to_relative_time(self, epoch):
         if epoch:
